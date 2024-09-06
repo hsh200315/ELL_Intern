@@ -7,8 +7,9 @@ import utils
 import datasets
 import models
 
-args = utils.add_args()
+PATH = './models/cifar_LeNet.pth'
 
+args = utils.add_args()
 epochs = int(args.epoch)
 batch_size = int(args.batch_size)
 lr = float(args.lr)
@@ -34,10 +35,7 @@ optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9)
 for epoch in range(epochs):
 	running_loss = 0.0
 	for i, data in enumerate(trainLoader, 0):
-		inputs, labels = data
-		if torch.cuda.is_available():
-			inputs = inputs.to('cuda')
-			labels = labels.to('cuda')
+		inputs, labels = data[0].to('cuda'), data[1].to('cuda')
 
 		optimizer.zero_grad()
   
@@ -47,8 +45,38 @@ for epoch in range(epochs):
 		optimizer.step()
   
 		running_loss += loss.item()
-		if i % 2000 == 1999:
-			print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
+		if i % 300 == 299:
+			print(f'epoch: {epoch+1} loss: {running_loss / 300:.3f}')
 			running_loss = 0.0
 
 print("Fininsed Training")
+torch.save(net.state_dict(), PATH)
+
+correct = 0
+total = 0
+with torch.no_grad():
+    for data in testLoader:
+        images, labels = data[0].to('cuda'), data[1].to('cuda')
+        outputs = net(images)
+        _, predicted = torch.max(outputs.data, 1)
+        total += labels.size(0)
+        correct += (predicted == labels).sum().item()
+
+print(f'Accuracy of the network on the 10000 test images: {100 * correct // total} %')
+
+correct_pred = {classname: 0 for classname in classes}
+total_pred = {classname: 0 for classname in classes}
+
+with torch.no_grad():
+    for data in testLoader:
+        images, labels = data[0].to('cuda'), data[1].to('cuda')
+        outputs = net(images)
+        _, predictions = torch.max(outputs, 1)
+        for label, prediction in zip(labels, predictions):
+            if label == prediction:
+                correct_pred[classes[label]] += 1
+            total_pred[classes[label]] += 1
+
+for classname, correct_count in correct_pred.items():
+    accuracy = 100 * float(correct_count) / total_pred[classname]
+    print(f'Accuracy for class: {classname:5s} is {accuracy:.1f} %')
