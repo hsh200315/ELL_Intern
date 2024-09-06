@@ -8,14 +8,12 @@ import utils
 import datasets
 import models
 
-PATH = './models/cifar_LeNet.pth'
+PATH = './models/stl10_LeNet.pth'
 
 args = utils.add_args()
 epochs = int(args.epoch)
 batch_size = int(args.batch_size)
 lr = float(args.lr)
-
-writer = SummaryWriter()
 
 #Load Data
 train_data, test_data, classes = datasets.load_data(args.dataset)
@@ -31,6 +29,8 @@ net.to('cuda')
   
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9)
+
+writer = SummaryWriter()
   
 for epoch in range(epochs):
 	running_loss = 0.0

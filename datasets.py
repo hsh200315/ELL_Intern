@@ -35,7 +35,7 @@ def load_data(dataset):
 	elif dataset == "stl10":
 		train_data = datasets.STL10(
 			root="./data",
-			train=True,
+			split='train',
 			download=True,
 			transform= transforms.Compose([
 				transforms.RandomResizedCrop(32),
@@ -46,7 +46,7 @@ def load_data(dataset):
 		)
 		test_data = datasets.STL10(
 			root="./data",
-			train=False,
+			split='test',
 			download=True,
 			transform= transforms.Compose([
 				transforms.Resize(32),
