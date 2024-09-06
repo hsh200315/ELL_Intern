@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
+from torch.utils.tensorboard import SummaryWriter
 
 import utils
 import datasets
@@ -14,20 +15,19 @@ epochs = int(args.epoch)
 batch_size = int(args.batch_size)
 lr = float(args.lr)
 
+writer = SummaryWriter()
+
 #Load Data
-train_data, test_data = datasets.load_data(args.dataset)
+train_data, test_data, classes = datasets.load_data(args.dataset)
 trainLoader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=2)
 testLoader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=2)
-classes = ('plane', 'car', 'bird', 'cat',
-           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
 #Load Model
 args.model = args.model.lower()
 if args.model == "lenet":
   net = models.LeNet()
   
-if torch.cuda.is_available():
-  net.to('cuda')
+net.to('cuda')
   
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9)
@@ -45,10 +45,11 @@ for epoch in range(epochs):
 		optimizer.step()
   
 		running_loss += loss.item()
-		if i % 300 == 299:
-			print(f'epoch: {epoch+1} loss: {running_loss / 300:.3f}')
-			running_loss = 0.0
+	print(f'epoch: {epoch} loss: {running_loss/len(trainLoader):.3f}')
+	writer.add_scalar("Loss/train", running_loss/len(trainLoader), epoch)
 
+writer.flush()
+writer.close()
 print("Fininsed Training")
 torch.save(net.state_dict(), PATH)
 
@@ -62,7 +63,7 @@ with torch.no_grad():
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
 
-print(f'Accuracy of the network on the 10000 test images: {100 * correct // total} %')
+print(f'Accuracy of the network on the {total} test images: {100 * correct // total} %')
 
 correct_pred = {classname: 0 for classname in classes}
 total_pred = {classname: 0 for classname in classes}
