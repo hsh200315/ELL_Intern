@@ -4,6 +4,7 @@ from torchvision import datasets
 import torchvision.transforms as transforms
 
 def load_data(dataset):
+	dataset = dataset.lower()
 	if dataset == "cifar10":
 		train_data = datasets.CIFAR10(
 			root="./data",
