@@ -56,4 +56,4 @@ def load_data(dataset):
   
 		classes = ('plane', 'bird', 'car', 'cat',
            'deer', 'dog', 'horse', 'monkey', 'ship', 'truck')
-		return train_data, test_data
+		return train_data, test_data, classes
