@@ -27,7 +27,10 @@ def load_data(dataset):
 				transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
 			])
 		)
-		return train_data, test_data
+  
+		classes = ('plane', 'car', 'bird', 'cat',
+           'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+		return train_data, test_data, classes
   
 	elif dataset == "stl10":
 		train_data = datasets.STL10(
@@ -50,4 +53,7 @@ def load_data(dataset):
 				transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
 			])
 		)
+  
+		classes = ('plane', 'bird', 'car', 'cat',
+           'deer', 'dog', 'horse', 'monkey', 'ship', 'truck')
 		return train_data, test_data
