@@ -5,7 +5,7 @@ import torch.nn.functional as F
 class LeNet(nn.Module):
 	def __init__(self):
 		super(LeNet, self).__init__()
-		self.conv1 = nn.Conv2d(1, 6, 5) #(입력 이미지 채널, 출력 채널, 정사각형 필터 크기)
+		self.conv1 = nn.Conv2d(3, 6, 5) #(입력 이미지 채널, 출력 채널, 정사각형 필터 크기) / CIFAR10, STL10 모두 컬러 이미지
 		self.conv2 = nn.Conv2d(6, 16, 5)
 
 		self.fc1 = nn.Linear(16 * 5 * 5, 120) #(5*5 크기의 feature map이 16개 존재 -> faltten(1차원화) 이후 fcnn에 넘김)
