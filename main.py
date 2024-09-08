@@ -8,29 +8,37 @@ import utils
 import datasets
 import models
 
-PATH = './models/stl10_LeNet.pth'
+#Trained Model Save Path
+model_name = 'CIFAR10_ResNet'
+PATH = f'./models/{model_name}.pth'
+PATH_FOR_LOG = f'./runs/{model_name}'
 
 args = utils.add_args()
 epochs = int(args.epoch)
 batch_size = int(args.batch_size)
 lr = float(args.lr)
+size = 224
 
-#Load Data
-train_data, test_data, classes = datasets.load_data(args.dataset)
-trainLoader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=2)
-testLoader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=2)
-
-#Load Model
+#Load Network
 args.model = args.model.lower()
 if args.model == "lenet":
-  net = models.LeNet()
-  
+    net = models.LeNet()
+    size = 32
+elif args.model == "resnet":
+    net = models.ResNet18()
+    size = 224
+
 net.to('cuda')
+
+#Load Data
+train_data, test_data, classes = datasets.load_data(args.dataset, size)
+trainLoader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=2)
+testLoader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=2)
   
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9)
 
-writer = SummaryWriter()
+writer = SummaryWriter(PATH_FOR_LOG)
   
 for epoch in range(epochs):
 	running_loss = 0.0

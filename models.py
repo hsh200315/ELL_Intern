@@ -27,7 +27,7 @@ class LeNet(nn.Module):
 		#(400, 120)의 fcnn 통과 -> ReLU 통과
 		f6 = F.relu(self.fc2(f5))
 		#(120, 84)의 fcnn 통과 -> ReLU 통과
-  
+	
 		output = self.fc3(f6)
 		#(84, 10)의 fcnn 통과 -> 최종 10 class
 		return output
@@ -40,3 +40,75 @@ class LeNet(nn.Module):
 		x = F.relu(self.fc2(x))
 		x = self.fc3(x)
 		return x
+
+
+
+
+class BasicBlock(nn.Module):
+	def add_block(input_dim, output_dim, downsampling=False):
+		stride = 2 if downsampling else 1
+		padding = 3 if downsampling else 2
+	
+		block = nn.Sequential(
+			nn.Conv2d(input_dim, output_dim, kernel_size=3, padding=padding, stride=stride),
+			nn.BatchNorm2d(output_dim),
+			nn.ReLU(),
+			nn.Conv2d(output_dim, output_dim, kernel_size=3),
+			nn.BatchNorm2d(output_dim)
+		)
+	
+		return block
+
+	def add_projection(input_dim, output_dim):
+		shortcut = nn.Sequential(
+			nn.Conv2d(input_dim, output_dim, kernel_size=1, stride=2),
+			nn.BatchNorm2d(output_dim)
+		)
+
+		return shortcut
+
+class ResNet18(nn.Module):
+	def __init__(self):
+		super(ResNet18, self).__init__()
+		self.conv1 = nn.Conv2d(3, 64, kernel_size=7, padding=3, stride=2)
+		self.conv2_1 = BasicBlock.add_block(64, 64)
+		self.conv2_2 = BasicBlock.add_block(64, 64)
+		self.conv3_1 = BasicBlock.add_block(64, 128, True)
+		self.conv3_2 = BasicBlock.add_block(128, 128)
+		self.conv4_1 = BasicBlock.add_block(128, 256, True)
+		self.conv4_2 = BasicBlock.add_block(256, 256)
+		self.conv5_1 = BasicBlock.add_block(256, 512, True)
+		self.conv5_2 = BasicBlock.add_block(512, 512)
+	
+		self.fc1 = nn.Linear(512 * 7 * 7, 1000)
+
+		self.p1 = BasicBlock.add_projection(64, 128) #projection 연산 (차원 일치)
+		self.p2 = BasicBlock.add_projection(128, 256)
+		self.p3 = BasicBlock.add_projection(256, 512)
+	
+	def forward(self, x):
+		x = F.max_pool2d(F.relu(self.conv1(x)), kernel_size=3, stride=2, padding=1)
+
+		input = x; x = F.relu(self.conv2_1(x) + input)
+		input = x; x = F.relu(self.conv2_2(x) + input)
+  
+		# print(self.conv3_1(x).shape)
+		# print(self.p1(x).shape)
+		input = x; x = F.relu(self.conv3_1(x) + self.p1(input))
+		input = x; x = F.relu(self.conv3_2(x) + input)
+  
+		# print(self.conv4_1(x).shape)
+		# print(self.p2(x).shape)
+		input = x; x = F.relu(self.conv4_1(x) + self.p2(input))
+		input = x; x = F.relu(self.conv4_2(x) + input)
+  
+		# print(self.conv5_1(x).shape)
+		# print(self.p3(x).shape)
+		input = x; x = F.relu(self.conv5_1(x) + self.p3(input))
+		input = x; x = F.relu(self.conv5_2(x) + input)
+  
+		x = torch.flatten(x, 1)
+		x = self.fc1(x)
+		return x
+
+
