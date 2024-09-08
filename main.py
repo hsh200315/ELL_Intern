@@ -9,7 +9,7 @@ import datasets
 import models
 
 #Trained Model Save Path
-model_name = 'STL10_ResNet'
+model_name = 'CIFAR10_ResNet'
 PATH = f'./models/{model_name}.pth'
 PATH_FOR_LOG = f'./runs/{model_name}'
 
@@ -59,8 +59,6 @@ for epoch in range(epochs):
 	print(f'epoch: {epoch} loss: {running_loss/len(trainLoader):.3f}')
 	writer.add_scalar("Loss/train", running_loss/len(trainLoader), epoch)
 
-writer.flush()
-writer.close()
 print("Fininsed Training")
 torch.save(net.state_dict(), PATH)
 
@@ -76,8 +74,12 @@ with torch.no_grad():
 
 print(f'Accuracy of the network on the {total} test images: {100 * correct // total} %')
 
+writer.add_scalar("Accuracy", 100 * correct // total)
 correct_pred = {classname: 0 for classname in classes}
 total_pred = {classname: 0 for classname in classes}
+
+writer.flush()
+writer.close()
 
 with torch.no_grad():
     for data in testLoader:
