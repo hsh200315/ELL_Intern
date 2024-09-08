@@ -9,7 +9,7 @@ import datasets
 import models
 
 #Trained Model Save Path
-model_name = 'CIFAR10_ResNet'
+model_name = 'STL10_ResNet'
 PATH = f'./models/{model_name}.pth'
 PATH_FOR_LOG = f'./runs/{model_name}'
 
@@ -24,6 +24,9 @@ args.model = args.model.lower()
 if args.model == "lenet":
     net = models.LeNet()
     size = 32
+elif args.model == "resnet" and args.dataset == 'stl10':
+    net = models.ResNet18_STL10()
+    size = 96
 elif args.model == "resnet":
     net = models.ResNet18()
     size = 224
