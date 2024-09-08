@@ -9,7 +9,7 @@ import datasets
 import models
 
 #Trained Model Save Path
-model_name = 'CIFAR10_ResNet50'
+model_name = 'CIFAR10_PreActResNet101'
 PATH = f'./models/{model_name}.pth'
 PATH_FOR_LOG = f'./runs/{model_name}'
 
@@ -32,6 +32,9 @@ elif args.model == "resnet18":
     size = 224
 elif args.model == "resnet50":
     net = models.ResNet50()
+    size = 224
+elif args.model == "preactresnet":
+    net = models.PreActResNet101()
     size = 224
 
 net.to('cuda')

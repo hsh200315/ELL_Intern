@@ -43,7 +43,6 @@ class LeNet(nn.Module):
 
 
 
-
 class BasicBlock(nn.Module):
 	def add_block(input_dim, output_dim, downsampling=False):
 		stride = 2 if downsampling else 1 #conv3_1, conv4_1, conv5_1에서 downsampling
@@ -68,7 +67,7 @@ class BasicBlock(nn.Module):
 class BottleNeckBlock(nn.Module):
 	def add_block(input_dim, middle_dim, output_dim, downsampling=False):
 		stride = 2 if downsampling else 1 #conv3_1, conv4_1, conv5_1에서 downsampling
-  
+	
 		block = nn.Sequential(
 			nn.Conv2d(input_dim, middle_dim, kernel_size=1, padding=0, stride=1),
 			nn.BatchNorm2d(middle_dim), #매 convolution 이후, activation 전 BN 적용
@@ -88,6 +87,8 @@ class BottleNeckBlock(nn.Module):
 			nn.BatchNorm2d(output_dim)
 		)
 		return shortcut
+
+
 
 class ResNet18(nn.Module):
 	def __init__(self):
@@ -124,7 +125,6 @@ class ResNet18(nn.Module):
 		x = self.fc1(x)
 		return x
 
-
 class ResNet18_STL10(nn.Module):
 	def __init__(self):
 		super(ResNet18_STL10, self).__init__()
@@ -160,30 +160,87 @@ class ResNet18_STL10(nn.Module):
 		x = self.fc1(x)
 		return x
 
+
+
+class PreActBottleNeckBlock(nn.Module):
+	def add_block(input_dim, middle_dim, output_dim, downsampling=False):
+		stride = 2 if downsampling else 1 #conv3_1, conv4_1, conv5_1에서 downsampling
+	
+		block = nn.Sequential(
+			nn.BatchNorm2d(input_dim), #Activation 순서 변경
+			nn.ReLU(),
+			nn.Conv2d(input_dim, middle_dim, kernel_size=1, padding=0, stride=1),
+			nn.BatchNorm2d(middle_dim),
+			nn.ReLU(),
+			nn.Conv2d(middle_dim, middle_dim, kernel_size=3, padding=1, stride=stride),
+			nn.BatchNorm2d(middle_dim),
+			nn.ReLU(),
+			nn.Conv2d(middle_dim, output_dim, kernel_size=1, padding=0, stride=1), #Weight 이후 Activation하지 않음
+		)
+		return block
+
+	def add_projection(input_dim, output_dim, donwsampling=False):
+		stride = 2 if donwsampling else 1
+		shortcut = nn.Sequential(
+			nn.Conv2d(input_dim, output_dim, kernel_size=1, stride=stride), #차원 일치 이후, Activation하지 않음
+		)
+		return shortcut
+
 class ResNet50(nn.Module):
 	def __init__(self):
 		super(ResNet50, self).__init__()
 		self.conv1 = nn.Conv2d(3, 64, kernel_size=7, padding=3, stride=2)
+		self.conv2_1 = PreActBottleNeckBlock.add_block(64, 64, 256)
+		self.conv2_2 = PreActBottleNeckBlock.add_block(256, 64, 256)
+		self.conv3_1 = PreActBottleNeckBlock.add_block(256, 128, 512, True)
+		self.conv3_2 = PreActBottleNeckBlock.add_block(512, 128, 512)
+		self.conv4_1 = PreActBottleNeckBlock.add_block(512, 256, 1024, True)
+		self.conv4_2 = PreActBottleNeckBlock.add_block(1024, 256, 1024)
+		self.conv5_1 = PreActBottleNeckBlock.add_block(1024, 512, 2048, True)
+		self.conv5_2 = PreActBottleNeckBlock.add_block(2048, 512, 2048)
+	
+		self.fc1 = nn.Linear(2048 * 7 * 7, 1000)
+
+		self.p1 = PreActBottleNeckBlock.add_projection(64, 256, False) #projection 연산 (차원 일치)
+		self.p2 = PreActBottleNeckBlock.add_projection(256, 512, True)
+		self.p3 = PreActBottleNeckBlock.add_projection(512, 1024, True)
+		self.p4 = PreActBottleNeckBlock.add_projection(1024, 2048, True)
+	
+	def forward(self, x):
+		x = F.max_pool2d(F.relu(self.conv1(x)), kernel_size=3, stride=2, padding=1)
+
+		input = x; x = self.conv2_1(x) + self.p1(input)
+		for i in range(2):
+			input = x; x = self.conv2_2(x) + input
+
+		input = x; x = self.conv3_1(x) + self.p2(input)
+		for i in range(3):
+			input = x; x = self.conv3_2(x) + input
+   
+		input = x; x = self.conv4_1(x) + self.p3(input)
+		for i in range(5):
+			input = x; x = self.conv4_2(x) + input
+		input = x; x = self.conv5_1(x) + self.p4(input)
+		for i in range(2):
+			input = x; x = self.conv5_2(x) + input
+	
+		x = torch.flatten(x, 1)
+		x = self.fc1(x)
+		return x
+
+class PreActResNet101(nn.Module):
+	def __init__(self):
+		super(PreActResNet101, self).__init__()
+		self.conv1 = nn.Conv2d(3, 64, kernel_size=7, padding=3, stride=2)
 	
 		self.conv2_1 = BottleNeckBlock.add_block(64, 64, 256)
 		self.conv2_2 = BottleNeckBlock.add_block(256, 64, 256)
-		self.conv2_3 = BottleNeckBlock.add_block(256, 64, 256)
-	
 		self.conv3_1 = BottleNeckBlock.add_block(256, 128, 512, True)
 		self.conv3_2 = BottleNeckBlock.add_block(512, 128, 512)
-		self.conv3_3 = BottleNeckBlock.add_block(512, 128, 512)
-		self.conv3_4 = BottleNeckBlock.add_block(512, 128, 512)
-	
 		self.conv4_1 = BottleNeckBlock.add_block(512, 256, 1024, True)
 		self.conv4_2 = BottleNeckBlock.add_block(1024, 256, 1024)
-		self.conv4_3 = BottleNeckBlock.add_block(1024, 256, 1024)
-		self.conv4_4 = BottleNeckBlock.add_block(1024, 256, 1024)
-		self.conv4_5 = BottleNeckBlock.add_block(1024, 256, 1024)
-		self.conv4_6 = BottleNeckBlock.add_block(1024, 256, 1024)
-
 		self.conv5_1 = BottleNeckBlock.add_block(1024, 512, 2048, True)
 		self.conv5_2 = BottleNeckBlock.add_block(2048, 512, 2048)
-		self.conv5_3 = BottleNeckBlock.add_block(2048, 512, 2048)
 	
 		self.fc1 = nn.Linear(2048 * 7 * 7, 1000)
 
@@ -194,23 +251,22 @@ class ResNet50(nn.Module):
 	
 	def forward(self, x):
 		x = F.max_pool2d(F.relu(self.conv1(x)), kernel_size=3, stride=2, padding=1)
-
+  
 		input = x; x = F.relu(self.conv2_1(x) + self.p1(input))
-		input = x; x = F.relu(self.conv2_2(x) + input)
-		input = x; x = F.relu(self.conv2_3(x) + input)
+		for i in range(2):
+			input = x; x = F.relu(self.conv2_2(x) + input)
+
 		input = x; x = F.relu(self.conv3_1(x) + self.p2(input))
-		input = x; x = F.relu(self.conv3_2(x) + input)
-		input = x; x = F.relu(self.conv3_3(x) + input)
-		input = x; x = F.relu(self.conv3_4(x) + input)
+		for i in range(3):
+			input = x; x = F.relu(self.conv3_2(x) + input)
+
 		input = x; x = F.relu(self.conv4_1(x) + self.p3(input))
-		input = x; x = F.relu(self.conv4_2(x) + input)
-		input = x; x = F.relu(self.conv4_3(x) + input)
-		input = x; x = F.relu(self.conv4_4(x) + input)
-		input = x; x = F.relu(self.conv4_5(x) + input)
-		input = x; x = F.relu(self.conv4_6(x) + input)
+		for i in range(22):
+			input = x; x = F.relu(self.conv4_2(x) + input)
+
 		input = x; x = F.relu(self.conv5_1(x) + self.p4(input))
-		input = x; x = F.relu(self.conv5_2(x) + input)
-		input = x; x = F.relu(self.conv5_3(x) + input)
+		for i in range(2):
+			input = x; x = F.relu(self.conv5_2(x) + input)
 	
 		x = torch.flatten(x, 1)
 		x = self.fc1(x)
