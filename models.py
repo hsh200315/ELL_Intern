@@ -5,6 +5,7 @@ import torch.nn.functional as F
 class LeNet(nn.Module):
 	def __init__(self):
 		super(LeNet, self).__init__()
+		print("Model: LeNet")
 		self.conv1 = nn.Conv2d(3, 6, 5) #(입력 이미지 채널, 출력 채널, 정사각형 필터 크기) / CIFAR10, STL10 모두 컬러 이미지
 		self.conv2 = nn.Conv2d(6, 16, 5)
 
@@ -57,9 +58,10 @@ class BasicBlock(nn.Module):
 		)
 		return block
 
-	def add_projection(input_dim, output_dim):
+	def add_projection(input_dim, output_dim, downsampling=True):
+		stride = 2 if downsampling else 1
 		shortcut = nn.Sequential(
-			nn.Conv2d(input_dim, output_dim, kernel_size=1, stride=2), #shortcut projection 연산
+			nn.Conv2d(input_dim, output_dim, kernel_size=1, stride=stride), #shortcut projection 연산
 			nn.BatchNorm2d(output_dim)
 		)
 		return shortcut
@@ -89,10 +91,10 @@ class BottleNeckBlock(nn.Module):
 		return shortcut
 
 
-
 class ResNet18(nn.Module):
 	def __init__(self):
 		super(ResNet18, self).__init__()
+		print("Model: ResNet18")
 		self.conv1 = nn.Conv2d(3, 64, kernel_size=7, padding=3, stride=2)
 		self.conv2_1 = BasicBlock.add_block(64, 64)
 		self.conv2_2 = BasicBlock.add_block(64, 64)
@@ -102,8 +104,9 @@ class ResNet18(nn.Module):
 		self.conv4_2 = BasicBlock.add_block(256, 256)
 		self.conv5_1 = BasicBlock.add_block(256, 512, True)
 		self.conv5_2 = BasicBlock.add_block(512, 512)
+		self.avg_pool = nn.AdaptiveAvgPool2d((1,1))
 	
-		self.fc1 = nn.Linear(512 * 7 * 7, 1000)
+		self.fc1 = nn.Linear(512, 10)
 
 		self.p1 = BasicBlock.add_projection(64, 128) #projection 연산 (차원 일치)
 		self.p2 = BasicBlock.add_projection(128, 256)
@@ -120,7 +123,8 @@ class ResNet18(nn.Module):
 		input = x; x = F.relu(self.conv4_2(x) + input)
 		input = x; x = F.relu(self.conv5_1(x) + self.p3(input))
 		input = x; x = F.relu(self.conv5_2(x) + input)
-	
+		x = self.avg_pool(x)
+  
 		x = torch.flatten(x, 1)
 		x = self.fc1(x)
 		return x
@@ -128,6 +132,7 @@ class ResNet18(nn.Module):
 class ResNet18_STL10(nn.Module):
 	def __init__(self):
 		super(ResNet18_STL10, self).__init__()
+		print("Model: ResNet18")
 		self.conv1 = nn.Conv2d(3, 64, kernel_size=3, padding=8, stride=2)
 		self.conv2_1 = BasicBlock.add_block(64, 64)
 		self.conv2_2 = BasicBlock.add_block(64, 64)
@@ -137,8 +142,9 @@ class ResNet18_STL10(nn.Module):
 		self.conv4_2 = BasicBlock.add_block(256, 256)
 		self.conv5_1 = BasicBlock.add_block(256, 512, True)
 		self.conv5_2 = BasicBlock.add_block(512, 512)
+		self.avg_pool = nn.AdaptiveAvgPool2d((1,1))
 	
-		self.fc1 = nn.Linear(512 * 7 * 7, 1000)
+		self.fc1 = nn.Linear(512, 10)
 
 		self.p1 = BasicBlock.add_projection(64, 128) #projection 연산 (차원 일치)
 		self.p2 = BasicBlock.add_projection(128, 256)
@@ -155,12 +161,128 @@ class ResNet18_STL10(nn.Module):
 		input = x; x = F.relu(self.conv4_2(x) + input)
 		input = x; x = F.relu(self.conv5_1(x) + self.p3(input))
 		input = x; x = F.relu(self.conv5_2(x) + input)
+		x = self.avg_pool(x)
+  
+		x = torch.flatten(x, 1)
+		x = self.fc1(x)
+		return x
 
+class ResNet101(nn.Module):
+	def __init__(self):
+		super(ResNet101, self).__init__()
+		print("Model: ResNet101")
+		self.conv1 = nn.Conv2d(3, 64, kernel_size=7, padding=3, stride=2)
+		self.conv2_1 = BottleNeckBlock.add_block(64, 64, 256)
+		self.conv2_2 = BottleNeckBlock.add_block(256, 64, 256)
+		self.conv3_1 = BottleNeckBlock.add_block(256, 128, 512, True)
+		self.conv3_2 = BottleNeckBlock.add_block(512, 128, 512)
+		self.conv4_1 = BottleNeckBlock.add_block(512, 256, 1024, True)
+		self.conv4_2 = BottleNeckBlock.add_block(1024, 256, 1024)
+		self.conv5_1 = BottleNeckBlock.add_block(1024, 512, 2048, True)
+		self.conv5_2 = BottleNeckBlock.add_block(2048, 512, 2048)
+		self.avg_pool = nn.AdaptiveAvgPool2d((1,1))
+	
+		self.fc1 = nn.Linear(2048, 10)
+
+		self.p1 = BottleNeckBlock.add_projection(64, 256, False) #projection 연산 (차원 일치)
+		self.p2 = BottleNeckBlock.add_projection(256, 512, True)
+		self.p3 = BottleNeckBlock.add_projection(512, 1024, True)
+		self.p4 = BottleNeckBlock.add_projection(1024, 2048, True)
+	
+	def forward(self, x):
+		x = F.max_pool2d(F.relu(self.conv1(x)), kernel_size=3, stride=2, padding=1)
+
+		input = x; x = F.relu(self.conv2_1(x) + self.p1(input))
+		for i in range(2):
+			input = x; x = F.relu(self.conv2_2(x) + input)
+
+		input = x; x = F.relu(self.conv3_1(x) + self.p2(input))
+		for i in range(3):
+			input = x; x = F.relu(self.conv3_2(x) + input)
+   
+		input = x; x = F.relu(self.conv4_1(x) + self.p3(input))
+		for i in range(22):
+			input = x; x = F.relu(self.conv4_2(x) + input)
+		input = x; x = F.relu(self.conv5_1(x) + self.p4(input))
+		for i in range(2):
+			input = x; x = F.relu(self.conv5_2(x) + input)
+		x = self.avg_pool(x)
+	
+		x = torch.flatten(x, 1)
+		x = self.fc1(x)
+		return x
+
+class ResNet110(nn.Module):
+	def __init__(self):
+		super(ResNet110, self).__init__()
+		print("Model: ResNet110")
+		self.conv1 = nn.Conv2d(3, 64, kernel_size=7, padding=3, stride=2)
+	
+		self.conv2_1 = BasicBlock.add_block(64, 256)
+		self.conv2_2 = BasicBlock.add_block(256, 256)
+		self.conv3_1 = BasicBlock.add_block(256, 512, True)
+		self.conv3_2 = BasicBlock.add_block(512, 512)
+		self.conv4_1 = BasicBlock.add_block(512, 1024, True)
+		self.conv4_2 = BasicBlock.add_block(1024, 1024)
+		self.conv5_1 = BasicBlock.add_block(1024, 2048, True)
+		self.conv5_2 = BasicBlock.add_block(2048, 2048)
+		self.avg_pool = nn.AdaptiveAvgPool2d((1,1))
+		self.BN = nn.BatchNorm2d(2048)
+		self.ReLU = nn.ReLU()
+	
+		self.fc1 = nn.Linear(2048, 10)
+
+		self.p1 = BasicBlock.add_projection(64, 256, False)
+		self.p2 = BasicBlock.add_projection(256, 512)
+		self.p3 = BasicBlock.add_projection(512, 1024)
+		self.p4 = BasicBlock.add_projection(1024, 2048)
+	
+	def forward(self, x):
+		x = F.max_pool2d(self.conv1(x), kernel_size=3, stride=2, padding=1)
+  
+		input = x; x = self.conv2_1(x) + self.p1(input)
+		for i in range(2):
+			input = x; x = self.conv2_2(x) + input
+
+		input = x; x = self.conv3_1(x) + self.p2(input)
+		for i in range(3):
+			input = x; x = self.conv3_2(x) + input
+
+		input = x; x = self.conv4_1(x) + self.p3(input)
+		for i in range(43):
+			input = x; x = self.conv4_2(x) + input
+
+		input = x; x = self.conv5_1(x) + self.p4(input)
+		for i in range(2):
+			input = x; x = self.conv5_2(x) + input
+		x = self.ReLU(self.BN(x))
+		x = self.avg_pool(x)
+	
 		x = torch.flatten(x, 1)
 		x = self.fc1(x)
 		return x
 
 
+
+class PreActBasicBlock(nn.Module):
+	def add_block(input_dim, output_dim, downsampling=False):
+		stride = 2 if downsampling else 1 #conv3_1, conv4_1, conv5_1에서 downsampling
+		padding = 3 if downsampling else 2 #downsampling 진행 시 이미지 크기 유지
+	
+		block = nn.Sequential(
+			nn.BatchNorm2d(input_dim), #Activation 순서 변경
+			nn.ReLU(),
+			nn.Conv2d(input_dim, output_dim, kernel_size=3, padding=padding, stride=stride),
+   		nn.BatchNorm2d(output_dim),
+			nn.ReLU(),
+			nn.Conv2d(output_dim, output_dim, kernel_size=3)
+		)
+		return block
+
+	def add_projection(input_dim, output_dim, downsampling=True):
+		stride = 2 if downsampling else 1
+		shortcut = nn.Conv2d(input_dim, output_dim, kernel_size=1, stride=stride)
+		return shortcut
 
 class PreActBottleNeckBlock(nn.Module):
 	def add_block(input_dim, middle_dim, output_dim, downsampling=False):
@@ -179,17 +301,17 @@ class PreActBottleNeckBlock(nn.Module):
 		)
 		return block
 
-	def add_projection(input_dim, output_dim, donwsampling=False):
-		stride = 2 if donwsampling else 1
-		shortcut = nn.Sequential(
-			nn.Conv2d(input_dim, output_dim, kernel_size=1, stride=stride), #차원 일치 이후, Activation하지 않음
-		)
+	def add_projection(input_dim, output_dim, downsampling=True):
+		stride = 2 if downsampling else 1
+		shortcut = nn.Conv2d(input_dim, output_dim, kernel_size=1, stride=stride), #차원 일치 이후, Activation하지 않음
 		return shortcut
 
-class ResNet50(nn.Module):
+class PreActResNet101(nn.Module):
 	def __init__(self):
-		super(ResNet50, self).__init__()
+		super(PreActResNet101, self).__init__()
+		print("Model: PreActResNet101")
 		self.conv1 = nn.Conv2d(3, 64, kernel_size=7, padding=3, stride=2)
+	
 		self.conv2_1 = PreActBottleNeckBlock.add_block(64, 64, 256)
 		self.conv2_2 = PreActBottleNeckBlock.add_block(256, 64, 256)
 		self.conv3_1 = PreActBottleNeckBlock.add_block(256, 128, 512, True)
@@ -198,17 +320,20 @@ class ResNet50(nn.Module):
 		self.conv4_2 = PreActBottleNeckBlock.add_block(1024, 256, 1024)
 		self.conv5_1 = PreActBottleNeckBlock.add_block(1024, 512, 2048, True)
 		self.conv5_2 = PreActBottleNeckBlock.add_block(2048, 512, 2048)
+		self.avg_pool = nn.AdaptiveAvgPool2d((1,1))
+		self.BN = nn.BatchNorm2d(2048)
+		self.ReLU = nn.ReLU()
 	
-		self.fc1 = nn.Linear(2048 * 7 * 7, 1000)
+		self.fc1 = nn.Linear(2048, 10)
 
 		self.p1 = PreActBottleNeckBlock.add_projection(64, 256, False) #projection 연산 (차원 일치)
-		self.p2 = PreActBottleNeckBlock.add_projection(256, 512, True)
-		self.p3 = PreActBottleNeckBlock.add_projection(512, 1024, True)
-		self.p4 = PreActBottleNeckBlock.add_projection(1024, 2048, True)
+		self.p2 = PreActBottleNeckBlock.add_projection(256, 512)
+		self.p3 = PreActBottleNeckBlock.add_projection(512, 1024)
+		self.p4 = PreActBottleNeckBlock.add_projection(1024, 2048)
 	
 	def forward(self, x):
-		x = F.max_pool2d(F.relu(self.conv1(x)), kernel_size=3, stride=2, padding=1)
-
+		x = F.max_pool2d(self.conv1(x), kernel_size=3, stride=2, padding=1)
+  
 		input = x; x = self.conv2_1(x) + self.p1(input)
 		for i in range(2):
 			input = x; x = self.conv2_2(x) + input
@@ -216,57 +341,66 @@ class ResNet50(nn.Module):
 		input = x; x = self.conv3_1(x) + self.p2(input)
 		for i in range(3):
 			input = x; x = self.conv3_2(x) + input
-   
+
 		input = x; x = self.conv4_1(x) + self.p3(input)
-		for i in range(5):
+		for i in range(22):
 			input = x; x = self.conv4_2(x) + input
+
 		input = x; x = self.conv5_1(x) + self.p4(input)
 		for i in range(2):
 			input = x; x = self.conv5_2(x) + input
+		x = self.ReLU(self.BN(x))
+		x = self.avg_pool(x)
 	
 		x = torch.flatten(x, 1)
 		x = self.fc1(x)
 		return x
 
-class PreActResNet101(nn.Module):
+class PreActResNet110(nn.Module):
 	def __init__(self):
-		super(PreActResNet101, self).__init__()
+		super(PreActResNet110, self).__init__()
+		print("Model: PreActResNet110")
 		self.conv1 = nn.Conv2d(3, 64, kernel_size=7, padding=3, stride=2)
 	
-		self.conv2_1 = BottleNeckBlock.add_block(64, 64, 256)
-		self.conv2_2 = BottleNeckBlock.add_block(256, 64, 256)
-		self.conv3_1 = BottleNeckBlock.add_block(256, 128, 512, True)
-		self.conv3_2 = BottleNeckBlock.add_block(512, 128, 512)
-		self.conv4_1 = BottleNeckBlock.add_block(512, 256, 1024, True)
-		self.conv4_2 = BottleNeckBlock.add_block(1024, 256, 1024)
-		self.conv5_1 = BottleNeckBlock.add_block(1024, 512, 2048, True)
-		self.conv5_2 = BottleNeckBlock.add_block(2048, 512, 2048)
+		self.conv2_1 = PreActBasicBlock.add_block(64, 256)
+		self.conv2_2 = PreActBasicBlock.add_block(256, 256)
+		self.conv3_1 = PreActBasicBlock.add_block(256, 512, True)
+		self.conv3_2 = PreActBasicBlock.add_block(512, 512)
+		self.conv4_1 = PreActBasicBlock.add_block(512, 1024, True)
+		self.conv4_2 = PreActBasicBlock.add_block(1024, 1024)
+		self.conv5_1 = PreActBasicBlock.add_block(1024, 2048, True)
+		self.conv5_2 = PreActBasicBlock.add_block(2048, 2048)
+		self.avg_pool = nn.AdaptiveAvgPool2d((1,1))
+		self.BN = nn.BatchNorm2d(2048)
+		self.ReLU = nn.ReLU()
 	
-		self.fc1 = nn.Linear(2048 * 7 * 7, 1000)
+		self.fc1 = nn.Linear(2048, 10)
 
-		self.p1 = BottleNeckBlock.add_projection(64, 256, False) #projection 연산 (차원 일치)
-		self.p2 = BottleNeckBlock.add_projection(256, 512, True)
-		self.p3 = BottleNeckBlock.add_projection(512, 1024, True)
-		self.p4 = BottleNeckBlock.add_projection(1024, 2048, True)
+		self.p1 = PreActBasicBlock.add_projection(64, 256, False)
+		self.p2 = PreActBasicBlock.add_projection(256, 512)
+		self.p3 = PreActBasicBlock.add_projection(512, 1024)
+		self.p4 = PreActBasicBlock.add_projection(1024, 2048)
 	
 	def forward(self, x):
-		x = F.max_pool2d(F.relu(self.conv1(x)), kernel_size=3, stride=2, padding=1)
+		x = F.max_pool2d(self.conv1(x), kernel_size=3, stride=2, padding=1)
   
-		input = x; x = F.relu(self.conv2_1(x) + self.p1(input))
+		input = x; x = self.conv2_1(x) + self.p1(input)
 		for i in range(2):
-			input = x; x = F.relu(self.conv2_2(x) + input)
+			input = x; x = self.conv2_2(x) + input
 
-		input = x; x = F.relu(self.conv3_1(x) + self.p2(input))
+		input = x; x = self.conv3_1(x) + self.p2(input)
 		for i in range(3):
-			input = x; x = F.relu(self.conv3_2(x) + input)
+			input = x; x = self.conv3_2(x) + input
 
-		input = x; x = F.relu(self.conv4_1(x) + self.p3(input))
-		for i in range(22):
-			input = x; x = F.relu(self.conv4_2(x) + input)
+		input = x; x = self.conv4_1(x) + self.p3(input)
+		for i in range(43):
+			input = x; x = self.conv4_2(x) + input
 
-		input = x; x = F.relu(self.conv5_1(x) + self.p4(input))
+		input = x; x = self.conv5_1(x) + self.p4(input)
 		for i in range(2):
-			input = x; x = F.relu(self.conv5_2(x) + input)
+			input = x; x = self.conv5_2(x) + input
+		x = self.ReLU(self.BN(x))
+		x = self.avg_pool(x)
 	
 		x = torch.flatten(x, 1)
 		x = self.fc1(x)

@@ -8,16 +8,16 @@ import utils
 import datasets
 import models
 
-#Trained Model Save Path
-model_name = 'CIFAR10_PreActResNet101'
-PATH = f'./models/{model_name}.pth'
-PATH_FOR_LOG = f'./runs/{model_name}'
-
 args = utils.add_args()
 epochs = int(args.epoch)
 batch_size = int(args.batch_size)
 lr = float(args.lr)
 size = 224
+
+#Trained Model Save Path
+model_name = f'{args.dataset}_{args.model}'
+PATH = f'./models/{model_name}.pth'
+PATH_FOR_LOG = f'./runs/{model_name}'
 
 #Load Network
 args.model = args.model.lower()
@@ -30,11 +30,17 @@ elif args.model == "resnet18" and args.dataset == 'stl10':
 elif args.model == "resnet18":
     net = models.ResNet18()
     size = 224
-elif args.model == "resnet50":
-    net = models.ResNet50()
+elif args.model == "resnet101":
+    net = models.ResNet101()
     size = 224
-elif args.model == "preactresnet":
+elif args.model == "resnet110":
+    net = models.ResNet110()
+    size = 224
+elif args.model == "preactresnet101":
     net = models.PreActResNet101()
+    size = 224
+elif args.model == "preactresnet110":
+    net = models.PreActResNet110()
     size = 224
 
 net.to('cuda')
