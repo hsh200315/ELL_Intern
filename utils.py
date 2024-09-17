@@ -1,4 +1,5 @@
 import argparse
+import random
 
 def add_args():
 	parser = argparse.ArgumentParser()
@@ -10,3 +11,10 @@ def add_args():
 	parser.add_argument("-e", "--epoch", dest="epoch", action="store")
 
 	return parser.parse_args()
+
+def is_true():
+  p = 0.5
+  if p >= random.random():
+    return True
+  else:
+    return False

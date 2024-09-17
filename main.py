@@ -26,6 +26,8 @@ elif args.model[:6] == "resnet":
     net = models.ResNet(int(args.model[6:]))
 elif args.model[:12] == "preactresnet":
     net = models.PreActResNet(int(args.model[12:]))
+elif args.model == "fractalnet":
+    net = models.FractalNet(4)
     
 print(net)
 net.to('cuda')
