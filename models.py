@@ -106,56 +106,56 @@ class ResNet(nn.Module):
             nn.ReLU()
         )
         if self.model_num <= 1:
-            self.conv2_1 = ResBasicBlock(64, 64)
-            self.conv2_2 = ResBasicBlock(64, 64)
-            self.conv3_1 = ResBasicBlock(64, 128, True)
-            self.conv3_2 = ResBasicBlock(128, 128)
-            self.conv4_1 = ResBasicBlock(128, 256, True)
-            self.conv4_2 = ResBasicBlock(256, 256)
-            self.conv5_1 = ResBasicBlock(256, 512, True)
-            self.conv5_2 = ResBasicBlock(512, 512)
+            self.conv2 = nn.Sequential(ResBasicBlock(64, 64))
+            for i in range(self.layer_2[self.model_num]-1):
+                self.conv2.append(ResBasicBlock(64, 64))
+            self.conv3 = nn.Sequential(ResBasicBlock(64, 128, True))
+            for i in range(self.layer_3[self.model_num]-1):
+                self.conv3.append(ResBasicBlock(128, 128))
+            self.conv4 = nn.Sequential(ResBasicBlock(128, 256, True))
+            for i in range(self.layer_4[self.model_num]-1):
+                self.conv4.append(ResBasicBlock(256, 256))
+            self.conv5 = nn.Sequential(ResBasicBlock(256, 512, True))
+            for i in range(self.layer_5[self.model_num]-1):
+                self.conv5.append(ResBasicBlock(512, 512))
             self.fc1 = nn.Linear(512, 10)
         elif self.model_num == 2:
-            self.conv2_1 = ResBasicBlock(64, 256)
-            self.conv2_2 = ResBasicBlock(256, 256)
-            self.conv3_1 = ResBasicBlock(256, 512, True)
-            self.conv3_2 = ResBasicBlock(512, 512)
-            self.conv4_1 = ResBasicBlock(512, 1024, True)
-            self.conv4_2 = ResBasicBlock(1024, 1024)
-            self.conv5_1 = ResBasicBlock(1024, 2048, True)
-            self.conv5_2 = ResBasicBlock(2048, 2048)
+            self.conv2 = nn.Sequential(ResBasicBlock(64, 256))
+            for i in range(self.layer_2[self.model_num]-1):
+                self.conv2.append(ResBasicBlock(256, 256))
+            self.conv3 = nn.Sequential(ResBasicBlock(256, 512, True))
+            for i in range(self.layer_3[self.model_num]-1):
+                self.conv3.append(ResBasicBlock(512, 512))
+            self.conv4 = nn.Sequential(ResBasicBlock(512, 1024, True))
+            for i in range(self.layer_4[self.model_num]-1):
+                self.conv4.append(ResBasicBlock(1024, 1024))
+            self.conv5 = nn.Sequential(ResBasicBlock(1024, 2048, True))
+            for i in range(self.layer_5[self.model_num]-1):
+                self.conv5.append(ResBasicBlock(2048, 2048))
             self.fc1 = nn.Linear(2048, 10)
         else:
-            self.conv2_1 = ResBottleNeckBlock(64, 64, 256)
-            self.conv2_2 = ResBottleNeckBlock(256, 64, 256)
-            self.conv3_1 = ResBottleNeckBlock(256, 128, 512, True)
-            self.conv3_2 = ResBottleNeckBlock(512, 128, 512)
-            self.conv4_1 = ResBottleNeckBlock(512, 256, 1024, True)
-            self.conv4_2 = ResBottleNeckBlock(1024, 256, 1024)
-            self.conv5_1 = ResBottleNeckBlock(1024, 512, 2048, True)
-            self.conv5_2 = ResBottleNeckBlock(2048, 512, 2048)
+            self.conv2 = nn.Sequential(ResBottleNeckBlock(64, 64, 256))
+            for i in range(self.layer_2[self.model_num]-1):
+                self.conv2.append(ResBottleNeckBlock(256, 64, 256))
+            self.conv3 = nn.Sequential(ResBottleNeckBlock(256, 128, 512, True))
+            for i in range(self.layer_3[self.model_num]-1):
+                self.conv3.append(ResBottleNeckBlock(512, 128, 512))
+            self.conv4 = nn.Sequential(ResBottleNeckBlock(512, 256, 1024, True))
+            for i in range(self.layer_4[self.model_num]-1):
+                self.conv4.append(ResBottleNeckBlock(1024, 256, 1024))
+            self.conv5 = nn.Sequential(ResBottleNeckBlock(1024, 512, 2048, True))
+            for i in range(self.layer_5[self.model_num]-1):
+                self.conv5.append(ResBottleNeckBlock(2048, 512, 2048))
             self.fc1 = nn.Linear(2048, 10)
         self.avg_pool = nn.AdaptiveAvgPool2d((1,1))
     
     def forward(self, x):
         x = self.conv1(x)
-
-        x = self.conv2_1(x)
-        for i in range(self.layer_2[self.model_num]-1):
-            self.conv2_2(x)
-
-        x = self.conv3_1(x)
-        for i in range(self.layer_3[self.model_num]-1):
-            x = self.conv3_2(x)
-    
-        x = self.conv4_1(x)
-        for i in range(self.layer_4[self.model_num]-1):
-            x = self.conv4_2(x)
-            
-        x = self.conv5_1(x)
-        for i in range(self.layer_5[self.model_num]-1):
-            x = self.conv5_2(x)
-            
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = self.conv5(x)
+        
         x = self.avg_pool(x)
         x = torch.flatten(x, 1)
         x = self.fc1(x)
@@ -210,11 +210,11 @@ class PreActBottleNeckBlock(nn.Module):
 class PreActResNet(nn.Module):
     def __init__(self, num_layer):
         super(PreActResNet, self).__init__()
-        layer_list = [101, 110]
-        self.layer_2 = [3, 3]
-        self.layer_3 = [4, 4]
-        self.layer_4 = [23, 44]
-        self.layer_5 = [3, 3]
+        layer_list = [34, 110, 101]
+        self.layer_2 = [3, 3, 3]
+        self.layer_3 = [4, 4, 4]
+        self.layer_4 = [6, 44, 23]
+        self.layer_5 = [3, 3, 3]
         try:
             model_num = layer_list.index(num_layer)
             self.model_num = model_num
@@ -222,47 +222,43 @@ class PreActResNet(nn.Module):
         except:
             print("PreActResNet layer 수를 [101, 110] 중 골라주세요")
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, padding=1, stride=1)
-        if self.model_num == 0:
-            self.conv2_1 = PreActBottleNeckBlock(64, 64, 256)
-            self.conv2_2 = PreActBottleNeckBlock(256, 64, 256)
-            self.conv3_1 = PreActBottleNeckBlock(256, 128, 512, True)
-            self.conv3_2 = PreActBottleNeckBlock(512, 128, 512)
-            self.conv4_1 = PreActBottleNeckBlock(512, 256, 1024, True)
-            self.conv4_2 = PreActBottleNeckBlock(1024, 256, 1024)
-            self.conv5_1 = PreActBottleNeckBlock(1024, 512, 2048, True)
-            self.conv5_2 = PreActBottleNeckBlock(2048, 512, 2048)
-        elif self.model_num == 1:
-            self.conv2_1 = PreActBasicBlock(64, 256)
-            self.conv2_2 = PreActBasicBlock(256, 256)
-            self.conv3_1 = PreActBasicBlock(256, 512, True)
-            self.conv3_2 = PreActBasicBlock(512, 512)
-            self.conv4_1 = PreActBasicBlock(512, 1024, True)
-            self.conv4_2 = PreActBasicBlock(1024, 1024)
-            self.conv5_1 = PreActBasicBlock(1024, 2048, True)
-            self.conv5_2 = PreActBasicBlock(2048, 2048)
+        if self.model_num <= 1:
+            self.conv2 = nn.Sequential(PreActBasicBlock(64, 256))
+            for i in range(self.layer_2[self.model_num]-1):
+                self.conv2.append(PreActBasicBlock(256, 256))
+            self.conv3 = nn.Sequential(PreActBasicBlock(256, 512, True))
+            for i in range(self.layer_3[self.model_num]-1):
+                self.conv3.append(PreActBasicBlock(512, 512))
+            self.conv4 = nn.Sequential(PreActBasicBlock(512, 1024, True))
+            for i in range(self.layer_4[self.model_num]-1):
+                self.conv4.append(PreActBasicBlock(1024, 1024))
+            self.conv5 = nn.Sequential(PreActBasicBlock(1024, 2048, True))
+            for i in range(self.layer_5[self.model_num]-1):
+                self.conv5.append(PreActBasicBlock(2048, 2048))
+        if self.model_num == 2:
+            self.conv2 = nn.Sequential(PreActBottleNeckBlock(64, 64, 256))
+            for i in range(self.layer_2[self.model_num]-1):
+                self.conv2.append(PreActBottleNeckBlock(256, 64, 256))
+            self.conv3 = nn.Sequential(PreActBottleNeckBlock(256, 128, 512, True))
+            for i in range(self.layer_3[self.model_num]-1):
+                self.conv3.append(PreActBottleNeckBlock(512, 128, 512))
+            self.conv4 = nn.Sequential(PreActBottleNeckBlock(512, 256, 1024, True))
+            for i in range(self.layer_4[self.model_num]-1):
+                self.conv4.append(PreActBottleNeckBlock(1024, 256, 1024))
+            self.conv5 = nn.Sequential(PreActBottleNeckBlock(1024, 512, 2048, True))
+            for i in range(self.layer_5[self.model_num]-1):
+                self.conv5.append(PreActBottleNeckBlock(2048, 512, 2048))
         self.avg_pool = nn.AdaptiveAvgPool2d((1,1))
         self.BN = nn.BatchNorm2d(2048)
         self.fc1 = nn.Linear(2048, 10)
             
     def forward(self, x):
         x = self.conv1(x)
-
-        x = self.conv2_1(x)
-        for i in range(self.layer_2[self.model_num]-1):
-            x = self.conv2_2(x)
-
-        x = self.conv3_1(x)
-        for i in range(self.layer_3[self.model_num]-1):
-            x = self.conv3_2(x)
-    
-        x = self.conv4_1(x)
-        for i in range(self.layer_4[self.model_num]-1):
-            x = self.conv4_2(x)
-            
-        x = self.conv5_1(x)
-        for i in range(self.layer_5[self.model_num]-1):
-            x = self.conv5_2(x)
-            
+        x = self.conv2(x)
+        x = self.conv3(x)
+        x = self.conv4(x)
+        x = self.conv5(x)
+        
         x = F.relu(self.BN(x))
         x = self.avg_pool(x)
         x = torch.flatten(x, 1)
@@ -286,20 +282,63 @@ class DenseBottleNeckLayer(nn.Module):
         x = self.conv2(F.relu(self.BN2(x)))
         
         return x
+
+class DenseTransitionLayer(nn.Module):
+    def __init__(self, input_channel, theta):
+        super(DenseTransitionLayer, self).__init__()
+        self.conv = nn.Conv2d(input_channel, theta*input_channel, kernel_size=1, stride=1, padding=0)
+        self.avgpool = nn.AvgPool2d((2,2), 2)
+    
+    def forward(self, x):
+        x = self.conv(x)
+        x = self.avgpool(x)
+        
+        return x
     
 class DenseBlock(nn.Module):
-    def __init__(self, input_channel, growth_rate):
-        super(DenseBottleNeckLayer, self).__init__()
-        self.layer_list = []
-        for i in range(12):
-            self.layer_list.append(DenseBottleNeckLayer(input_channel + i*growth_rate, growth_rate))
+    def __init__(self):
+        self.conv = 1
 
 class DenseNet(nn.Module):
-    def __init__(self):
+    def __init__(self, num_layer):
         super(DenseNet, self).__init__()
+        layer_list = [40, 100]
+        self.layer = [12, 32]
+        theta = 0.5
+        try:
+            model_num = layer_list.index(num_layer)
+            self.model_num = model_num
+            print(num_layer, model_num)
+        except:
+            print("PreActResNet layer 수를 [101, 110] 중 골라주세요")
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1)
+        self.dBlock1 = nn.Sequential()
+        for i in range(self.layer[model_num]):
+            self.dBlock1.append(DenseBottleNeckLayer(64+12*i, 12))
+        self.dBlock2 = nn.Sequential()
+        for i in range(self.layer[model_num]):
+            self.dBlock2.append(DenseBottleNeckLayer(98+12*i, 12))
+        self.dBlock3 = nn.Sequential()
+        for i in range(self.layer[model_num]):
+            self.dBlock3.append(DenseBottleNeckLayer(115+12*i, 12))
         
+        self.tLayer1 = DenseTransitionLayer(64+12*11, theta)
+        self.tLayer2 = DenseTransitionLayer(98+12*11, theta)
         
-
+        self.avgpool = nn.AdaptiveAvgPool2d((1,1))
+        self.fc = nn.Linear(256,10)
+    
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.dBlock1(x)
+        x = self.tLayer1(x)
+        x = self.dBlock2(x)
+        x = self.tLayer2(x)
+        
+        x = self.avgpool(x)
+        x = self.fc(x)
+        
+        return x
 
     
 class FractalBasicBlock(nn.Module):
