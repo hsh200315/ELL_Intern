@@ -166,7 +166,7 @@ class ResNet(nn.Module):
 
 class PreActBasicBlock(nn.Module):
     def __init__(self, input_dim, output_dim, downsampling=False):
-        super(BasicBlock, self).__init__()
+        super(PreActBasicBlock, self).__init__()
         stride = 2 if downsampling else 1 #conv3_1, conv4_1, conv5_1에서 downsampling
         padding = 3 if downsampling else 2 #downsampling 진행 시 이미지 크기 유지
         
@@ -232,14 +232,14 @@ class PreActResNet(nn.Module):
             self.conv5_1 = PreActBottleNeckBlock(1024, 512, 2048, True)
             self.conv5_2 = PreActBottleNeckBlock(2048, 512, 2048)
         elif self.model_num == 1:
-            self.conv2_1 = PreActBasicBlock.add_block(64, 256)
-            self.conv2_2 = PreActBasicBlock.add_block(256, 256)
-            self.conv3_1 = PreActBasicBlock.add_block(256, 512, True)
-            self.conv3_2 = PreActBasicBlock.add_block(512, 512)
-            self.conv4_1 = PreActBasicBlock.add_block(512, 1024, True)
-            self.conv4_2 = PreActBasicBlock.add_block(1024, 1024)
-            self.conv5_1 = PreActBasicBlock.add_block(1024, 2048, True)
-            self.conv5_2 = PreActBasicBlock.add_block(2048, 2048)
+            self.conv2_1 = PreActBasicBlock(64, 256)
+            self.conv2_2 = PreActBasicBlock(256, 256)
+            self.conv3_1 = PreActBasicBlock(256, 512, True)
+            self.conv3_2 = PreActBasicBlock(512, 512)
+            self.conv4_1 = PreActBasicBlock(512, 1024, True)
+            self.conv4_2 = PreActBasicBlock(1024, 1024)
+            self.conv5_1 = PreActBasicBlock(1024, 2048, True)
+            self.conv5_2 = PreActBasicBlock(2048, 2048)
         self.avg_pool = nn.AdaptiveAvgPool2d((1,1))
         self.BN = nn.BatchNorm2d(2048)
         self.fc1 = nn.Linear(2048, 10)
@@ -249,7 +249,7 @@ class PreActResNet(nn.Module):
 
         x = self.conv2_1(x)
         for i in range(self.layer_2[self.model_num]-1):
-            self.conv2_2(x)
+            x = self.conv2_2(x)
 
         x = self.conv3_1(x)
         for i in range(self.layer_3[self.model_num]-1):
@@ -274,8 +274,8 @@ class PreActResNet(nn.Module):
 class BasicLayer(nn.Module):
     def __init__(self, input_dim, output_dim):
         super(BasicLayer, self).__init__()
-        self.conv = nn.Conv2d(input_dim, output_dim, kernel_size=3, padding=1, stride=1),
-        self.BN = nn.BatchNorm2d(output_dim),
+        self.conv = nn.Conv2d(input_dim, output_dim, kernel_size=3, padding=1, stride=1)
+        self.BN = nn.BatchNorm2d(output_dim)
     
     def forward(self, x):
         x = self.conv(x)
