@@ -46,17 +46,17 @@ class LeNet(nn.Module):
 
 
 
-class BasicBlock(nn.Module):
-    def __init__(self, input_dim, output_dim, downsampling=False):
-        super(BasicBlock, self).__init__()
+class ResBasicBlock(nn.Module):
+    def __init__(self, input_channel, output_channel, downsampling=False):
+        super(ResBasicBlock, self).__init__()
         stride = 2 if downsampling else 1 #conv3_1, conv4_1, conv5_1에서 downsampling
         padding = 3 if downsampling else 2 #downsampling 진행 시 이미지 크기 유지
         
-        self.conv1 = nn.Conv2d(input_dim, output_dim, kernel_size=3, padding=padding, stride=stride)
-        self.conv2 = nn.Conv2d(output_dim, output_dim, kernel_size=3)
-        self.shortcut = nn.Conv2d(input_dim, output_dim, kernel_size=1, stride=stride)
+        self.conv1 = nn.Conv2d(input_channel, output_channel, kernel_size=3, padding=padding, stride=stride)
+        self.conv2 = nn.Conv2d(output_channel, output_channel, kernel_size=3)
+        self.shortcut = nn.Conv2d(input_channel, output_channel, kernel_size=1, stride=stride)
         
-        self.BN = nn.BatchNorm2d(output_dim)
+        self.BN = nn.BatchNorm2d(output_channel)
         
     def forward(self, x):
         c1 = F.relu(self.BN(self.conv1(x)))
@@ -66,18 +66,18 @@ class BasicBlock(nn.Module):
         result = F.relu(c2+s)
         return result
 
-class BottleNeckBlock(nn.Module):
-    def __init__(self, input_dim, middle_dim, output_dim, downsampling=False):
-        super(BottleNeckBlock, self).__init__()
+class ResBottleNeckBlock(nn.Module):
+    def __init__(self, input_channel, middle_channel, output_channel, downsampling=False):
+        super(ResBottleNeckBlock, self).__init__()
         stride = 2 if downsampling else 1 #conv3_1, conv4_1, conv5_1에서 downsampling
         
-        self.conv1 = nn.Conv2d(input_dim, middle_dim, kernel_size=1, padding=0, stride=1)
-        self.conv2 = nn.Conv2d(middle_dim, middle_dim, kernel_size=3, padding=1, stride=stride)
-        self.conv3 = nn.Conv2d(middle_dim, output_dim, kernel_size=1, padding=0, stride=1)
-        self.shortcut =  nn.Conv2d(input_dim, output_dim, kernel_size=1, stride=stride)
+        self.conv1 = nn.Conv2d(input_channel, middle_channel, kernel_size=1, padding=0, stride=1)
+        self.conv2 = nn.Conv2d(middle_channel, middle_channel, kernel_size=3, padding=1, stride=stride)
+        self.conv3 = nn.Conv2d(middle_channel, output_channel, kernel_size=1, padding=0, stride=1)
+        self.shortcut =  nn.Conv2d(input_channel, output_channel, kernel_size=1, stride=stride)
         
-        self.BN1 = nn.BatchNorm2d(middle_dim)
-        self.BN2 = nn.BatchNorm2d(output_dim)
+        self.BN1 = nn.BatchNorm2d(middle_channel)
+        self.BN2 = nn.BatchNorm2d(output_channel)
         
     def forward(self, x):
         c1 = F.relu(self.BN1(self.conv1(x)))
@@ -106,34 +106,34 @@ class ResNet(nn.Module):
             nn.ReLU()
         )
         if self.model_num <= 1:
-            self.conv2_1 = BasicBlock(64, 64)
-            self.conv2_2 = BasicBlock(64, 64)
-            self.conv3_1 = BasicBlock(64, 128, True)
-            self.conv3_2 = BasicBlock(128, 128)
-            self.conv4_1 = BasicBlock(128, 256, True)
-            self.conv4_2 = BasicBlock(256, 256)
-            self.conv5_1 = BasicBlock(256, 512, True)
-            self.conv5_2 = BasicBlock(512, 512)
+            self.conv2_1 = ResBasicBlock(64, 64)
+            self.conv2_2 = ResBasicBlock(64, 64)
+            self.conv3_1 = ResBasicBlock(64, 128, True)
+            self.conv3_2 = ResBasicBlock(128, 128)
+            self.conv4_1 = ResBasicBlock(128, 256, True)
+            self.conv4_2 = ResBasicBlock(256, 256)
+            self.conv5_1 = ResBasicBlock(256, 512, True)
+            self.conv5_2 = ResBasicBlock(512, 512)
             self.fc1 = nn.Linear(512, 10)
         elif self.model_num == 2:
-            self.conv2_1 = BasicBlock(64, 256)
-            self.conv2_2 = BasicBlock(256, 256)
-            self.conv3_1 = BasicBlock(256, 512, True)
-            self.conv3_2 = BasicBlock(512, 512)
-            self.conv4_1 = BasicBlock(512, 1024, True)
-            self.conv4_2 = BasicBlock(1024, 1024)
-            self.conv5_1 = BasicBlock(1024, 2048, True)
-            self.conv5_2 = BasicBlock(2048, 2048)
+            self.conv2_1 = ResBasicBlock(64, 256)
+            self.conv2_2 = ResBasicBlock(256, 256)
+            self.conv3_1 = ResBasicBlock(256, 512, True)
+            self.conv3_2 = ResBasicBlock(512, 512)
+            self.conv4_1 = ResBasicBlock(512, 1024, True)
+            self.conv4_2 = ResBasicBlock(1024, 1024)
+            self.conv5_1 = ResBasicBlock(1024, 2048, True)
+            self.conv5_2 = ResBasicBlock(2048, 2048)
             self.fc1 = nn.Linear(2048, 10)
         else:
-            self.conv2_1 = BottleNeckBlock(64, 64, 256)
-            self.conv2_2 = BottleNeckBlock(256, 64, 256)
-            self.conv3_1 = BottleNeckBlock(256, 128, 512, True)
-            self.conv3_2 = BottleNeckBlock(512, 128, 512)
-            self.conv4_1 = BottleNeckBlock(512, 256, 1024, True)
-            self.conv4_2 = BottleNeckBlock(1024, 256, 1024)
-            self.conv5_1 = BottleNeckBlock(1024, 512, 2048, True)
-            self.conv5_2 = BottleNeckBlock(2048, 512, 2048)
+            self.conv2_1 = ResBottleNeckBlock(64, 64, 256)
+            self.conv2_2 = ResBottleNeckBlock(256, 64, 256)
+            self.conv3_1 = ResBottleNeckBlock(256, 128, 512, True)
+            self.conv3_2 = ResBottleNeckBlock(512, 128, 512)
+            self.conv4_1 = ResBottleNeckBlock(512, 256, 1024, True)
+            self.conv4_2 = ResBottleNeckBlock(1024, 256, 1024)
+            self.conv5_1 = ResBottleNeckBlock(1024, 512, 2048, True)
+            self.conv5_2 = ResBottleNeckBlock(2048, 512, 2048)
             self.fc1 = nn.Linear(2048, 10)
         self.avg_pool = nn.AdaptiveAvgPool2d((1,1))
     
@@ -165,17 +165,17 @@ class ResNet(nn.Module):
 
 
 class PreActBasicBlock(nn.Module):
-    def __init__(self, input_dim, output_dim, downsampling=False):
+    def __init__(self, input_channel, output_channel, downsampling=False):
         super(PreActBasicBlock, self).__init__()
         stride = 2 if downsampling else 1 #conv3_1, conv4_1, conv5_1에서 downsampling
         padding = 3 if downsampling else 2 #downsampling 진행 시 이미지 크기 유지
         
-        self.conv1 = nn.Conv2d(input_dim, output_dim, kernel_size=3, padding=padding, stride=stride)
-        self.conv2 = nn.Conv2d(output_dim, output_dim, kernel_size=3)
-        self.shortcut = nn.Conv2d(input_dim, output_dim, kernel_size=1, stride=stride)
+        self.conv1 = nn.Conv2d(input_channel, output_channel, kernel_size=3, padding=padding, stride=stride)
+        self.conv2 = nn.Conv2d(output_channel, output_channel, kernel_size=3)
+        self.shortcut = nn.Conv2d(input_channel, output_channel, kernel_size=1, stride=stride)
         
-        self.BN1 = nn.BatchNorm2d(input_dim)
-        self.BN2 = nn.BatchNorm2d(output_dim)
+        self.BN1 = nn.BatchNorm2d(input_channel)
+        self.BN2 = nn.BatchNorm2d(output_channel)
         
     def forward(self, x):
         c1 = self.conv1(F.relu(self.BN1(x)))
@@ -186,17 +186,17 @@ class PreActBasicBlock(nn.Module):
         return result
 
 class PreActBottleNeckBlock(nn.Module):
-    def __init__(self, input_dim, middle_dim, output_dim, downsampling=False):
+    def __init__(self, input_channel, middle_channel, output_channel, downsampling=False):
         super(PreActBottleNeckBlock, self).__init__()
         stride = 2 if downsampling else 1 #conv3_1, conv4_1, conv5_1에서 downsampling
         
-        self.conv1 = nn.Conv2d(input_dim, middle_dim, kernel_size=1, padding=0, stride=1)
-        self.conv2 = nn.Conv2d(middle_dim, middle_dim, kernel_size=3, padding=1, stride=stride)
-        self.conv3 = nn.Conv2d(middle_dim, output_dim, kernel_size=1, padding=0, stride=1)
-        self.shortcut = nn.Conv2d(input_dim, output_dim, kernel_size=1, stride=stride)
+        self.conv1 = nn.Conv2d(input_channel, middle_channel, kernel_size=1, padding=0, stride=1)
+        self.conv2 = nn.Conv2d(middle_channel, middle_channel, kernel_size=3, padding=1, stride=stride)
+        self.conv3 = nn.Conv2d(middle_channel, output_channel, kernel_size=1, padding=0, stride=1)
+        self.shortcut = nn.Conv2d(input_channel, output_channel, kernel_size=1, stride=stride)
         
-        self.BN1 = nn.BatchNorm2d(input_dim)
-        self.BN2 = nn.BatchNorm2d(middle_dim)
+        self.BN1 = nn.BatchNorm2d(input_channel)
+        self.BN2 = nn.BatchNorm2d(middle_channel)
     
     def forward(self, x):
         c1 = self.conv1(F.relu(self.BN1(x)))
@@ -270,12 +270,17 @@ class PreActResNet(nn.Module):
         return x
     
 
+class DenseBottleNeckBlock(nn.Module):
+    def __init__(self, input_channel, output_channel):
+        super(DenseBottleNeckBlock, self).__init__
+
+
     
-class BasicLayer(nn.Module):
-    def __init__(self, input_dim, output_dim):
-        super(BasicLayer, self).__init__()
-        self.conv = nn.Conv2d(input_dim, output_dim, kernel_size=3, padding=1, stride=1)
-        self.BN = nn.BatchNorm2d(output_dim)
+class FractalBasicBlock(nn.Module):
+    def __init__(self, input_channel, output_channel):
+        super(FractalBasicBlock, self).__init__()
+        self.conv = nn.Conv2d(input_channel, output_channel, kernel_size=3, padding=1, stride=1)
+        self.BN = nn.BatchNorm2d(output_channel)
     
     def forward(self, x):
         x = self.conv(x)
@@ -285,13 +290,13 @@ class BasicLayer(nn.Module):
         return x
 
 class FractalBlock(nn.Module):
-    def __init__(self, input_dim, output_dim, depth):
+    def __init__(self, input_channel, output_channel, depth):
         super(FractalBlock, self).__init__()
         if depth == 1:
-            self.block = BasicLayer(input_dim, output_dim)
+            self.block = FractalBasicBlock(input_channel, output_channel)
         else:
-            self.fractal1 = FractalBlock(input_dim, output_dim, depth-1)
-            self.fractal2 = FractalBlock(output_dim, output_dim, depth-1)
+            self.fractal1 = FractalBlock(input_channel, output_channel, depth-1)
+            self.fractal2 = FractalBlock(output_channel, output_channel, depth-1)
             self.avgpool = nn.AdaptiveAvgPool2d((1,1))
             
     def forward(self, x):
