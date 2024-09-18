@@ -28,7 +28,7 @@ elif args.model[:12] == "preactresnet":
     net = models.PreActResNet(int(args.model[12:]))
 elif args.model == "fractalnet":
     net = models.FractalNet(4)
-    
+
 print(net)
 net.to('cuda')
 
@@ -36,24 +36,24 @@ net.to('cuda')
 train_data, test_data, classes = datasets.load_data(args.dataset)
 trainLoader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=2)
 testLoader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=2)
-  
+
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9)
 
 writer = SummaryWriter(PATH_FOR_LOG)
-  
+
 for epoch in range(epochs):
     running_loss = 0.0
     for i, data in enumerate(trainLoader, 0):
         inputs, labels = data[0].to('cuda'), data[1].to('cuda')
 
         optimizer.zero_grad()
-  
+
         outputs = net(inputs)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
-  
+
         running_loss += loss.item()
         
     correct = 0

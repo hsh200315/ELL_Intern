@@ -270,9 +270,35 @@ class PreActResNet(nn.Module):
         return x
     
 
-class DenseBottleNeckBlock(nn.Module):
-    def __init__(self, input_channel, output_channel):
-        super(DenseBottleNeckBlock, self).__init__
+
+
+class DenseBottleNeckLayer(nn.Module):
+    def __init__(self, input_channel, growth_rate):
+        super(DenseBottleNeckLayer, self).__init__()
+        self.conv1 = nn.Conv2d(input_channel, 4*growth_rate, kernel_size=1, stride=1, padding=0)
+        self.conv2 = nn.Conv2d(4*growth_rate, growth_rate, kernel_size=3, stride=1, padding=1)
+        
+        self.BN1 = nn.BatchNorm2d(input_channel)
+        self.BN2 = nn.BatchNorm2d(4*growth_rate)
+    
+    def forward(self, x):
+        x = self.conv1(F.relu(self.BN1(x)))
+        x = self.conv2(F.relu(self.BN2(x)))
+        
+        return x
+    
+class DenseBlock(nn.Module):
+    def __init__(self, input_channel, growth_rate):
+        super(DenseBottleNeckLayer, self).__init__()
+        self.layer_list = []
+        for i in range(12):
+            self.layer_list.append(DenseBottleNeckLayer(input_channel + i*growth_rate, growth_rate))
+
+class DenseNet(nn.Module):
+    def __init__(self):
+        super(DenseNet, self).__init__()
+        
+        
 
 
     
