@@ -44,117 +44,101 @@ class LeNet(nn.Module):
         x = self.fc3(x)
         return x
 
-
-
 class ResBasicBlock(nn.Module):
     def __init__(self, input_channel, output_channel, downsampling=False):
         super(ResBasicBlock, self).__init__()
         stride = 2 if downsampling else 1 #conv3_1, conv4_1, conv5_1에서 downsampling
-        padding = 3 if downsampling else 2 #downsampling 진행 시 이미지 크기 유지
         
-        self.conv1 = nn.Conv2d(input_channel, output_channel, kernel_size=3, padding=padding, stride=stride)
-        self.conv2 = nn.Conv2d(output_channel, output_channel, kernel_size=3)
-        self.shortcut = nn.Conv2d(input_channel, output_channel, kernel_size=1, stride=stride)
+        self.downsampling = downsampling
+        self.conv1 = nn.Conv2d(input_channel, output_channel, kernel_size=3, padding=1, stride=stride)
+        self.conv2 = nn.Conv2d(output_channel, output_channel, kernel_size=3, padding=1, stride=1)
+        self.shortcut = nn.Conv2d(input_channel, output_channel, kernel_size=1, stride=2)
         
-        self.BN = nn.BatchNorm2d(output_channel)
+        self.bn = nn.ModuleList()
+        for i in range(2):
+            self.bn.append(nn.BatchNorm2d(output_channel))
+        self.relu = nn.ReLU(inplace=True) #inplace True하면 새로운 Tensor 만드는게 아니라 기존 Tensor 수정 -> 속도 향상/하지만 기존 값 사용하는 것에 영향
         
     def forward(self, x):
-        c1 = F.relu(self.BN(self.conv1(x)))
-        c2 = self.BN(self.conv2(c1))
-        s = self.BN(self.shortcut(x))
+        save = x
+        c1 = self.relu(self.bn[0](self.conv1(x)))
+        c2 = self.bn[1](self.conv2(c1))
         
-        result = F.relu(c2+s)
+        s = self.shortcut(save) if self.downsampling else save
+        
+        result = self.relu(c2+s)
         return result
+    
 
 class ResBottleNeckBlock(nn.Module):
     def __init__(self, input_channel, middle_channel, output_channel, downsampling=False):
         super(ResBottleNeckBlock, self).__init__()
         stride = 2 if downsampling else 1 #conv3_1, conv4_1, conv5_1에서 downsampling
         
+        self.downsampling = downsampling
         self.conv1 = nn.Conv2d(input_channel, middle_channel, kernel_size=1, padding=0, stride=1)
         self.conv2 = nn.Conv2d(middle_channel, middle_channel, kernel_size=3, padding=1, stride=stride)
         self.conv3 = nn.Conv2d(middle_channel, output_channel, kernel_size=1, padding=0, stride=1)
-        self.shortcut =  nn.Conv2d(input_channel, output_channel, kernel_size=1, stride=stride)
+        self.shortcut =  nn.Conv2d(input_channel, output_channel, kernel_size=1, stride=2)
         
-        self.BN1 = nn.BatchNorm2d(middle_channel)
-        self.BN2 = nn.BatchNorm2d(output_channel)
+        self.bn = nn.ModuleList()
+        for i in range(2):
+            self.bn.append(nn.BatchNorm2d(middle_channel))
+        self.bn.append(nn.BatchNorm2d(output_channel))
+        self.relu = nn.ReLU(inplace=True)
         
     def forward(self, x):
-        c1 = F.relu(self.BN1(self.conv1(x)))
-        c2 = F.relu(self.BN1(self.conv2(c1)))
-        c3 = self.BN2(self.conv3(c2))
-        s = self.BN2(self.shortcut(x))
+        save = x
+        c1 = self.relu(self.bn[0](self.conv1(x)))
+        c2 = self.relu(self.bn[1](self.conv2(c1)))
+        c3 = self.bn[2](self.conv3(c2))
         
-        result = F.relu(c3+s)
+        s = save if self.downsampling else self.shortcut(save)
+        
+        result = self.relu(c3+s)
         return result
 
 class ResNet(nn.Module):
-    def __init__(self, num_layer):
+    def __init__(self, start_channel, layer_num, block):
+        #layer_num = [2,2,2,2]
         super(ResNet, self).__init__()
-        layer_list = [18, 34, 110, 50, 101, 152]
-        self.layer_2 = [2, 3, 3, 3, 3, 3]
-        self.layer_3 = [2, 4, 4, 4, 4, 8]
-        self.layer_4 = [2, 6, 44, 6, 23, 36]
-        self.layer_5 = [2, 3, 3, 3, 3, 3]
-        try:
-            model_num = layer_list.index(num_layer)
-            self.model_num = model_num
-        except:
-            print("ResNet layer 수를 [18, 34, 110, 50, 101, 152] 중 골라주세요")
-        self.conv1 = nn.Sequential(
+        self.conv = nn.ModuleList()
+        #conv1
+        self.conv.append(nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=3, padding=1, stride=1),
             nn.ReLU()
-        )
-        if self.model_num <= 1:
-            self.conv2 = nn.Sequential(ResBasicBlock(64, 64))
-            for i in range(self.layer_2[self.model_num]-1):
-                self.conv2.append(ResBasicBlock(64, 64))
-            self.conv3 = nn.Sequential(ResBasicBlock(64, 128, True))
-            for i in range(self.layer_3[self.model_num]-1):
-                self.conv3.append(ResBasicBlock(128, 128))
-            self.conv4 = nn.Sequential(ResBasicBlock(128, 256, True))
-            for i in range(self.layer_4[self.model_num]-1):
-                self.conv4.append(ResBasicBlock(256, 256))
-            self.conv5 = nn.Sequential(ResBasicBlock(256, 512, True))
-            for i in range(self.layer_5[self.model_num]-1):
-                self.conv5.append(ResBasicBlock(512, 512))
-            self.fc1 = nn.Linear(512, 10)
-        elif self.model_num == 2:
-            self.conv2 = nn.Sequential(ResBasicBlock(64, 256))
-            for i in range(self.layer_2[self.model_num]-1):
-                self.conv2.append(ResBasicBlock(256, 256))
-            self.conv3 = nn.Sequential(ResBasicBlock(256, 512, True))
-            for i in range(self.layer_3[self.model_num]-1):
-                self.conv3.append(ResBasicBlock(512, 512))
-            self.conv4 = nn.Sequential(ResBasicBlock(512, 1024, True))
-            for i in range(self.layer_4[self.model_num]-1):
-                self.conv4.append(ResBasicBlock(1024, 1024))
-            self.conv5 = nn.Sequential(ResBasicBlock(1024, 2048, True))
-            for i in range(self.layer_5[self.model_num]-1):
-                self.conv5.append(ResBasicBlock(2048, 2048))
-            self.fc1 = nn.Linear(2048, 10)
-        else:
-            self.conv2 = nn.Sequential(ResBottleNeckBlock(64, 64, 256))
-            for i in range(self.layer_2[self.model_num]-1):
-                self.conv2.append(ResBottleNeckBlock(256, 64, 256))
-            self.conv3 = nn.Sequential(ResBottleNeckBlock(256, 128, 512, True))
-            for i in range(self.layer_3[self.model_num]-1):
-                self.conv3.append(ResBottleNeckBlock(512, 128, 512))
-            self.conv4 = nn.Sequential(ResBottleNeckBlock(512, 256, 1024, True))
-            for i in range(self.layer_4[self.model_num]-1):
-                self.conv4.append(ResBottleNeckBlock(1024, 256, 1024))
-            self.conv5 = nn.Sequential(ResBottleNeckBlock(1024, 512, 2048, True))
-            for i in range(self.layer_5[self.model_num]-1):
-                self.conv5.append(ResBottleNeckBlock(2048, 512, 2048))
-            self.fc1 = nn.Linear(2048, 10)
+        ))
+        for i in range(4):
+            self.conv.append(nn.Sequential())
+            
+        if block == "basic":
+            for i in range(layer_num[0]): #conv2
+                self.conv[1].append(ResBasicBlock(start_channel, start_channel))
+                
+            for i in range(3): #conv3,4,5
+                self.conv[i+2].append(ResBasicBlock(start_channel*pow(2,i), start_channel*pow(2,i+1), True))
+                for j in range(layer_num[i+1]-1):
+                    self.conv[i+2].append(ResBasicBlock(start_channel*pow(2,i+1), start_channel*pow(2,i+1)))
+                    
+            self.fc1 = nn.Linear(start_channel*8, 10)
+        elif block == "bottleneck":
+            self.conv[1].append(ResBottleNeckBlock(start_channel, start_channel, start_channel*4)) #conv2
+            for i in range(layer_num[0]-1):
+                self.conv[1].append(ResBottleNeckBlock(start_channel*4, start_channel, start_channel*4))
+            
+            for i in range(3): #conv3,4,5
+                self.conv[i+2].append(ResBottleNeckBlock(start_channel*pow(2,i+2), start_channel*pow(2,i+1), start_channel*pow(2,i+3), True))
+                for j in range(layer_num[i+1]-1):
+                    self.conv[i+2].append(ResBottleNeckBlock(start_channel*pow(2,i+3), start_channel*pow(2,i+1), start_channel*pow(2,i+3)))
+            self.fc1 = nn.Linear(start_channel*32, 10)
         self.avg_pool = nn.AdaptiveAvgPool2d((1,1))
     
     def forward(self, x):
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
-        x = self.conv4(x)
-        x = self.conv5(x)
+        x = self.conv[0](x)
+        x = self.conv[1](x)
+        x = self.conv[2](x)
+        x = self.conv[3](x)
+        x = self.conv[4](x)
         
         x = self.avg_pool(x)
         x = torch.flatten(x, 1)
@@ -163,24 +147,26 @@ class ResNet(nn.Module):
 
 
 
-
 class PreActBasicBlock(nn.Module):
     def __init__(self, input_channel, output_channel, downsampling=False):
         super(PreActBasicBlock, self).__init__()
         stride = 2 if downsampling else 1 #conv3_1, conv4_1, conv5_1에서 downsampling
-        padding = 3 if downsampling else 2 #downsampling 진행 시 이미지 크기 유지
         
-        self.conv1 = nn.Conv2d(input_channel, output_channel, kernel_size=3, padding=padding, stride=stride)
-        self.conv2 = nn.Conv2d(output_channel, output_channel, kernel_size=3)
+        self.downsampling = downsampling
+        self.conv1 = nn.Conv2d(input_channel, output_channel, kernel_size=3, padding=1, stride=stride)
+        self.conv2 = nn.Conv2d(output_channel, output_channel, kernel_size=3, padding=1, stride=1)
         self.shortcut = nn.Conv2d(input_channel, output_channel, kernel_size=1, stride=stride)
         
-        self.BN1 = nn.BatchNorm2d(input_channel)
-        self.BN2 = nn.BatchNorm2d(output_channel)
+        self.bn = nn.ModuleList()
+        self.bn.append(nn.BatchNorm2d(input_channel)); self.bn.append(nn.BatchNorm2d(output_channel))
+        self.relu = nn.ReLU(inplace=True)
         
     def forward(self, x):
-        c1 = self.conv1(F.relu(self.BN1(x)))
-        c2 = self.conv2(F.relu_(self.BN2(c1)))
-        s = self.shortcut(x)
+        save = x
+        c1 = self.conv1(self.relu(self.bn[0](x)))
+        c2 = self.conv2(self.relu(self.bn[1](c1)))
+        
+        s = save if self.downsampling else self.shortcut(save)
         
         result = c2+s
         return result
@@ -190,19 +176,25 @@ class PreActBottleNeckBlock(nn.Module):
         super(PreActBottleNeckBlock, self).__init__()
         stride = 2 if downsampling else 1 #conv3_1, conv4_1, conv5_1에서 downsampling
         
+        self.downsampling = downsampling
         self.conv1 = nn.Conv2d(input_channel, middle_channel, kernel_size=1, padding=0, stride=1)
         self.conv2 = nn.Conv2d(middle_channel, middle_channel, kernel_size=3, padding=1, stride=stride)
         self.conv3 = nn.Conv2d(middle_channel, output_channel, kernel_size=1, padding=0, stride=1)
-        self.shortcut = nn.Conv2d(input_channel, output_channel, kernel_size=1, stride=stride)
+        self.shortcut =  nn.Conv2d(input_channel, output_channel, kernel_size=1, stride=stride)
         
-        self.BN1 = nn.BatchNorm2d(input_channel)
-        self.BN2 = nn.BatchNorm2d(middle_channel)
+        self.bn = nn.ModuleList()
+        self.bn.append(nn.BatchNorm2d(input_channel))
+        for i in range(2):
+            self.bn.append(nn.BatchNorm2d(middle_channel))
+        self.relu = nn.ReLU(inplace=True)
     
     def forward(self, x):
-        c1 = self.conv1(F.relu(self.BN1(x)))
-        c2 = self.conv2(F.relu(self.BN2(c1)))
-        c3 = self.conv3(F.relu(self.BN2(c2)))
-        s = self.shortcut(x)
+        save = x
+        c1 = self.conv1(self.relu(self.bn[0](x)))
+        c2 = self.conv2(self.relu(self.bn[1](c1)))
+        c3 = self.conv3(self.relu(self.bn[2](c2)))
+        
+        s = save if self.downsampling else self.shortcut(save)
         
         result = c3+s
         return result
@@ -223,19 +215,21 @@ class PreActResNet(nn.Module):
             print("PreActResNet layer 수를 [101, 110] 중 골라주세요")
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, padding=1, stride=1)
         if self.model_num <= 1:
-            self.conv2 = nn.Sequential(PreActBasicBlock(64, 256))
+            self.conv2 = nn.Sequential(PreActBasicBlock(64, 64))
             for i in range(self.layer_2[self.model_num]-1):
-                self.conv2.append(PreActBasicBlock(256, 256))
-            self.conv3 = nn.Sequential(PreActBasicBlock(256, 512, True))
+                self.conv2.append(PreActBasicBlock(64, 64))
+            self.conv3 = nn.Sequential(PreActBasicBlock(64, 128, True))
             for i in range(self.layer_3[self.model_num]-1):
-                self.conv3.append(PreActBasicBlock(512, 512))
-            self.conv4 = nn.Sequential(PreActBasicBlock(512, 1024, True))
+                self.conv3.append(PreActBasicBlock(128, 128))
+            self.conv4 = nn.Sequential(PreActBasicBlock(128, 256, True))
             for i in range(self.layer_4[self.model_num]-1):
-                self.conv4.append(PreActBasicBlock(1024, 1024))
-            self.conv5 = nn.Sequential(PreActBasicBlock(1024, 2048, True))
+                self.conv4.append(PreActBasicBlock(256, 256))
+            self.conv5 = nn.Sequential(PreActBasicBlock(256, 512, True))
             for i in range(self.layer_5[self.model_num]-1):
-                self.conv5.append(PreActBasicBlock(2048, 2048))
-        if self.model_num == 2:
+                self.conv5.append(PreActBasicBlock(512, 512))
+            self.bn = nn.BatchNorm2d(512)
+            self.fc1 = nn.Linear(512, 10)
+        elif self.model_num == 2:
             self.conv2 = nn.Sequential(PreActBottleNeckBlock(64, 64, 256))
             for i in range(self.layer_2[self.model_num]-1):
                 self.conv2.append(PreActBottleNeckBlock(256, 64, 256))
@@ -248,9 +242,10 @@ class PreActResNet(nn.Module):
             self.conv5 = nn.Sequential(PreActBottleNeckBlock(1024, 512, 2048, True))
             for i in range(self.layer_5[self.model_num]-1):
                 self.conv5.append(PreActBottleNeckBlock(2048, 512, 2048))
+            self.bn = nn.BatchNorm2d(2048)
+            self.fc1 = nn.Linear(2048, 10)
         self.avg_pool = nn.AdaptiveAvgPool2d((1,1))
-        self.BN = nn.BatchNorm2d(2048)
-        self.fc1 = nn.Linear(2048, 10)
+        
             
     def forward(self, x):
         x = self.conv1(x)
@@ -259,7 +254,7 @@ class PreActResNet(nn.Module):
         x = self.conv4(x)
         x = self.conv5(x)
         
-        x = F.relu(self.BN(x))
+        x = F.relu(self.bn(x))
         x = self.avg_pool(x)
         x = torch.flatten(x, 1)
         x = self.fc1(x)
@@ -274,12 +269,12 @@ class DenseBottleNeckLayer(nn.Module):
         self.conv1 = nn.Conv2d(input_channel, 4*growth_rate, kernel_size=1, stride=1, padding=0)
         self.conv2 = nn.Conv2d(4*growth_rate, growth_rate, kernel_size=3, stride=1, padding=1)
         
-        self.BN1 = nn.BatchNorm2d(input_channel)
-        self.BN2 = nn.BatchNorm2d(4*growth_rate)
+        self.bn1 = nn.BatchNorm2d(input_channel)
+        self.bn2 = nn.BatchNorm2d(4*growth_rate)
     
     def forward(self, x):
-        x = self.conv1(F.relu(self.BN1(x)))
-        x = self.conv2(F.relu(self.BN2(x)))
+        x = self.conv1(F.relu(self.bn1(x)))
+        x = self.conv2(F.relu(self.bn2(x)))
         
         return x
 
@@ -310,7 +305,7 @@ class DenseNet(nn.Module):
             self.model_num = model_num
             print(num_layer, model_num)
         except:
-            print("PreActResNet layer 수를 [101, 110] 중 골라주세요")
+            print("DenseNet layer 수를 [40, 100] 중 골라주세요")
         self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1)
         self.dBlock1 = nn.Sequential()
         for i in range(self.layer[model_num]):
@@ -345,11 +340,11 @@ class FractalBasicBlock(nn.Module):
     def __init__(self, input_channel, output_channel):
         super(FractalBasicBlock, self).__init__()
         self.conv = nn.Conv2d(input_channel, output_channel, kernel_size=3, padding=1, stride=1)
-        self.BN = nn.BatchNorm2d(output_channel)
+        self.bn = nn.BatchNorm2d(output_channel)
     
     def forward(self, x):
         x = self.conv(x)
-        x = self.BN(x)
+        x = self.bn(x)
         x = F.relu(x)
         
         return x

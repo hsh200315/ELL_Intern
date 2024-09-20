@@ -9,6 +9,8 @@ def add_args():
     parser.add_argument("-b", "--batch_size", dest="batch_size",action="store")
     parser.add_argument("-l", "--lr", dest="lr",action="store")
     parser.add_argument("-e", "--epoch", dest="epoch", action="store")
+    parser.add_argument("-n", "--layer", dest="layer", nargs='+', type=int)
+    parser.add_argument("-bl", "--block", dest="block", action="store")
 
     return parser.parse_args()
 

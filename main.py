@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.optim.lr_scheduler as lr_scheduler
 import matplotlib.pyplot as plt
 from torch.utils.tensorboard import SummaryWriter
 
@@ -23,13 +24,16 @@ args.model = args.model.lower()
 if args.model == "lenet":
     net = models.LeNet()
 elif args.model[:6] == "resnet":
-    net = models.ResNet(int(args.model[6:]))
+    layer_num = args.layer
+    block = args.block
+    net = models.ResNet(64, layer_num, block)
 elif args.model[:12] == "preactresnet":
     net = models.PreActResNet(int(args.model[12:]))
 elif args.model == "fractalnet":
     net = models.FractalNet(4)
+elif args.model == "densenet":
+    net = models.DenseNet()
 
-print(net)
 net.to('cuda')
 
 #Load Data
@@ -38,7 +42,9 @@ trainLoader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shu
 testLoader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=2)
 
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9)
+optimizer = optim.SGD(net.parameters(), lr=lr, weight_decay=0.00001, momentum=0.9)
+milestones = [int(epochs*0.5), int(epochs*0.75)]
+scheduler = lr_scheduler.MultiStepLR(optimizer, milestones, gamma=0.1)
 
 writer = SummaryWriter(PATH_FOR_LOG)
 
@@ -55,7 +61,7 @@ for epoch in range(epochs):
         optimizer.step()
 
         running_loss += loss.item()
-        
+    scheduler.step()
     correct = 0
     total = 0
     with torch.no_grad(): 
