@@ -2,3 +2,5 @@ data/
 __pycache__/
 models/
 runs/
+runs2/
+models2/

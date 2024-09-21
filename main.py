@@ -16,19 +16,19 @@ lr = float(args.lr)
 
 #Trained Model Save Path
 model_name = f'{args.dataset}_{args.model}'
-PATH = f'./models/{model_name}.pth'
-PATH_FOR_LOG = f'./runs/{model_name}'
+PATH = f'./models2/{model_name}.pth'
+PATH_FOR_LOG = f'./runs2/{model_name}'
 
 #Load Network
 args.model = args.model.lower()
 if args.model == "lenet":
     net = models.LeNet()
 elif args.model[:6] == "resnet":
-    layer_num = args.layer
-    block = args.block
+    layer_num = args.layer; block = args.block
     net = models.ResNet(64, layer_num, block)
 elif args.model[:12] == "preactresnet":
-    net = models.PreActResNet(int(args.model[12:]))
+    layer_num = args.layer; block = args.block
+    net = models.PreActResNet(64, layer_num, block)
 elif args.model == "fractalnet":
     net = models.FractalNet(4)
 elif args.model == "densenet":
