@@ -237,29 +237,13 @@ class PreActResNet(nn.Module):
         x = torch.flatten(x, 1)
         x = self.fc1(x)
         return x
-    
 
 
-
-class DenseBottleNeckLayer(nn.Module):
-    def __init__(self, input_channel, growth_rate):
-        super(DenseBottleNeckLayer, self).__init__()
-        self.conv1 = nn.Conv2d(input_channel, 4*growth_rate, kernel_size=1, stride=1, padding=0)
-        self.conv2 = nn.Conv2d(4*growth_rate, growth_rate, kernel_size=3, stride=1, padding=1)
-        
-        self.bn1 = nn.BatchNorm2d(input_channel)
-        self.bn2 = nn.BatchNorm2d(4*growth_rate)
-    
-    def forward(self, x):
-        x = self.conv1(F.relu(self.bn1(x)))
-        x = self.conv2(F.relu(self.bn2(x)))
-        
-        return x
 
 class DenseTransitionLayer(nn.Module):
-    def __init__(self, input_channel, theta):
+    def __init__(self, input_channel, theta=0.5):
         super(DenseTransitionLayer, self).__init__()
-        self.conv = nn.Conv2d(input_channel, theta*input_channel, kernel_size=1, stride=1, padding=0)
+        self.conv = nn.Conv2d(input_channel, int(theta*input_channel), kernel_size=1, stride=1, padding=0)
         self.avgpool = nn.AvgPool2d((2,2), 2)
     
     def forward(self, x):
@@ -268,50 +252,75 @@ class DenseTransitionLayer(nn.Module):
         
         return x
     
+class DenseBottleNeck(nn.Module):
+    def __init__(self, input_channel, growth_rate):
+        super(DenseBottleNeck, self).__init__()
+        self.conv1 = nn.Conv2d(input_channel, 4*growth_rate, kernel_size=1, stride=1, padding=0)
+        self.conv2 = nn.Conv2d(4*growth_rate, growth_rate, kernel_size=3, stride=1, padding=1)
+        
+        self.bn1 = nn.BatchNorm2d(input_channel)
+        self.bn2 = nn.BatchNorm2d(4*growth_rate)
+        self.relu = nn.ReLU(inplace=True)
+        
+    def forward(self, x):
+        x = self.conv1(self.relu(self.bn1(x)))
+        x = self.conv2(self.relu(self.bn2(x)))
+        
+        return x
+    
 class DenseBlock(nn.Module):
-    def __init__(self):
-        self.conv = 1
+    def __init__(self, input_channel, growth_rate, num_layer):
+        super(DenseBlock, self).__init__()
+        self.num_layer = num_layer
+        self.bottlenecks = nn.ModuleList()
+        
+        for i in range(num_layer):
+            self.bottlenecks.append(DenseBottleNeck(input_channel+i*growth_rate, growth_rate))
+            
+    def forward(self, x):
+        count = 1
+        feature_map = [x]
+        for i in range(self.num_layer):
+            x = self.bottlenecks[i](torch.cat(feature_map, 1))
+            feature_map.append(x)
+        return torch.cat(feature_map, 1)
 
 class DenseNet(nn.Module):
-    def __init__(self, num_layer):
+    def __init__(self, start_channel, layer_num, growth_rate, theta=0.5):
         super(DenseNet, self).__init__()
-        layer_list = [40, 100]
-        self.layer = [12, 32]
-        theta = 0.5
-        try:
-            model_num = layer_list.index(num_layer)
-            self.model_num = model_num
-            print(num_layer, model_num)
-        except:
-            print("DenseNet layer 수를 [40, 100] 중 골라주세요")
-        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1)
-        self.dBlock1 = nn.Sequential()
-        for i in range(self.layer[model_num]):
-            self.dBlock1.append(DenseBottleNeckLayer(64+12*i, 12))
-        self.dBlock2 = nn.Sequential()
-        for i in range(self.layer[model_num]):
-            self.dBlock2.append(DenseBottleNeckLayer(98+12*i, 12))
-        self.dBlock3 = nn.Sequential()
-        for i in range(self.layer[model_num]):
-            self.dBlock3.append(DenseBottleNeckLayer(115+12*i, 12))
+        growth_rate = int(growth_rate); theta = float(theta)
+        input_channel = [start_channel]
         
-        self.tLayer1 = DenseTransitionLayer(64+12*11, theta)
-        self.tLayer2 = DenseTransitionLayer(98+12*11, theta)
+        self.conv1 = nn.Conv2d(3, input_channel[0], kernel_size=3, stride=1, padding=1)
+        self.dblock1 = DenseBlock(input_channel[0], growth_rate, layer_num[0])
+        self.tlayer1 = DenseTransitionLayer(input_channel[0]+growth_rate*layer_num[0], theta)
+        input_channel.append(int((input_channel[0]+growth_rate*layer_num[0])*theta))
+        self.dblock2 = DenseBlock(input_channel[1], growth_rate, layer_num[1])
+        self.tlayer2 = DenseTransitionLayer(input_channel[1]+growth_rate*layer_num[1], theta)
+        input_channel.append(int((input_channel[1]+growth_rate*layer_num[1])*theta))
+        self.dblock3 = DenseBlock(input_channel[2], growth_rate, layer_num[2])
+        self.tlayer3 = DenseTransitionLayer(input_channel[2]+growth_rate*layer_num[2], theta); 
+        input_channel.append(int((input_channel[2]+growth_rate*layer_num[2])*theta))
         
         self.avgpool = nn.AdaptiveAvgPool2d((1,1))
-        self.fc = nn.Linear(256,10)
+        num = (input_channel[1]-input_channel[0]) + (input_channel[2]-input_channel[1]) + (input_channel[3]-input_channel[2]) + start_channel
+        self.fc = nn.Linear(num, 10)
     
     def forward(self, x):
         x = self.conv1(x)
-        x = self.dBlock1(x)
-        x = self.tLayer1(x)
-        x = self.dBlock2(x)
-        x = self.tLayer2(x)
-        
+        x = self.dblock1(x)
+        x = self.tlayer1(x)
+        x = self.dblock2(x)
+        x = self.tlayer2(x)
+        x = self.dblock3(x)
+        x = self.tlayer3(x)
         x = self.avgpool(x)
+        
+        x = torch.flatten(x,1)
         x = self.fc(x)
         
         return x
+
 
     
 class FractalBasicBlock(nn.Module):

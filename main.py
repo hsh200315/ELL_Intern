@@ -16,8 +16,8 @@ lr = float(args.lr)
 
 #Trained Model Save Path
 model_name = f'{args.dataset}_{args.model}'
-PATH = f'./models2/{model_name}.pth'
-PATH_FOR_LOG = f'./runs2/{model_name}'
+PATH = f'./models/{model_name}.pth'
+PATH_FOR_LOG = f'./runs/{model_name}'
 
 #Load Network
 args.model = args.model.lower()
@@ -29,10 +29,11 @@ elif args.model[:6] == "resnet":
 elif args.model[:12] == "preactresnet":
     layer_num = args.layer; block = args.block
     net = models.PreActResNet(64, layer_num, block)
+elif args.model[:8] == "densenet":
+    layer_num = args.layer; growth_rate = args.growth_rate; theta = args.theta
+    net = models.DenseNet(64, layer_num, growth_rate, theta)
 elif args.model == "fractalnet":
     net = models.FractalNet(4)
-elif args.model == "densenet":
-    net = models.DenseNet()
 
 net.to('cuda')
 
