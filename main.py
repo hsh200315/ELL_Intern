@@ -7,7 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 import utils
 import datasets
-import lenet, resnet, preactresnet, densenet, fractalnet
+from model import lenet, resnet, preactresnet, densenet, fractalnet
 
 args = utils.add_args()
 epochs = int(args.epoch)
