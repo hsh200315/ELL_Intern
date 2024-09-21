@@ -7,7 +7,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 import utils
 import datasets
-import models
+import lenet, resnet, preactresnet, densenet, fractalnet
 
 args = utils.add_args()
 epochs = int(args.epoch)
@@ -22,18 +22,18 @@ PATH_FOR_LOG = f'./runs/{model_name}'
 #Load Network
 args.model = args.model.lower()
 if args.model == "lenet":
-    net = models.LeNet()
+    net = lenet.LeNet()
 elif args.model[:6] == "resnet":
     layer_num = args.layer; block = args.block
-    net = models.ResNet(64, layer_num, block)
+    net = resnet.ResNet(64, layer_num, block)
 elif args.model[:12] == "preactresnet":
     layer_num = args.layer; block = args.block
-    net = models.PreActResNet(64, layer_num, block)
+    net = preactresnet.PreActResNet(64, layer_num, block)
 elif args.model[:8] == "densenet":
     layer_num = args.layer; growth_rate = args.growth_rate; theta = args.theta
-    net = models.DenseNet(64, layer_num, growth_rate, theta)
+    net = densenet.DenseNet(64, layer_num, growth_rate, theta)
 elif args.model == "fractalnet":
-    net = models.FractalNet(4)
+    net = fractalnet.FractalNet(4)
 
 net.to('cuda')
 
