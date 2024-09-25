@@ -12,15 +12,22 @@ class ConvLayer(nn.Module):
         self.dropout = nn.Dropout(p=drop_out_prob)
         
     def forward(self, x):
-        x = self.relu(self.bn(self.conv(x)))
+        x = self.dropout(self.relu(self.bn(self.conv(x))))
         return x
 
 class JoinLayer(nn.Module):
-    def __init__(self):
+    def __init__(self, depth):
         super(JoinLayer, self).__init__()
-    
-    def forward(self, input1, input2):
-        return (input1+input2)/2
+        self.depth = depth
+        
+    def forward(self, input1, input2, path_num):
+        #input1 = short path, input2 long path
+        if path_num == 0:
+            return (input1+input2)/2
+        elif path_num == self.depth:
+            return input1
+        elif path_num < self.depth:
+            return input2
 
 class FractalBlock(nn.Module):
     def __init__(self, input_channel, output_channel, depth, local_prob, drop_out_prob):
@@ -30,30 +37,41 @@ class FractalBlock(nn.Module):
         if depth == 1:
             self.block = ConvLayer(input_channel, output_channel, drop_out_prob)
         else:
-            self.short_path = ConvLayer(input_channel, output_channel)
+            self.short_path = ConvLayer(input_channel, output_channel, drop_out_prob)
             self.block1 = FractalBlock(input_channel, output_channel, depth-1, local_prob, drop_out_prob)
             self.block2 = FractalBlock(output_channel, output_channel, depth-1, local_prob, drop_out_prob)
-            self.join = JoinLayer()
+            self.join = JoinLayer(depth)
             
     def forward(self, x, epoch):
-        if epoch%2 == 0: #local drop
-            if self.depth == 1:
-                x = self.block(x)
-            else:
-                if random.random() >= self.local_prob:
-                    result1 = self.short_path(x)
-                    if random.random() >= self.local_prob:
-                        result2 = self.block2(self.block1(x))
-                        x = self.join(result1, result2)
-                    else:
-                        x = result1
+        if not self.training:
+            result1 = self.short_path(x)
+            result2 = self.block2(self.block1(x, epoch), epoch)
+            x = self.join(result1, result2, 0)
+            return x
+        else:
+            if epoch%2 == 0: #local drop
+                if self.depth == 1:
+                    x = self.block(x)
                 else:
-                    x = self.block2(self.block1(x))
-                    
-        else: #global drop
-            x = x
-            
-        return x
+                    if random.random() >= self.local_prob:
+                        result1 = self.short_path(x)
+                        if random.random() >= self.local_prob:
+                            result2 = self.block2(self.block1(x, epoch), epoch)
+                            x = self.join(result1, result2, 0)
+                        else:
+                            x = result1
+                    else:
+                        x = self.block2(self.block1(x, epoch), epoch)
+                return x
+            else: #global drop
+                if self.depth == 1:
+                    x = self.block(x)
+                else:
+                    path_num = random.randint(1, self.depth) #path 1개 선택
+                    result1 = self.short_path(x)
+                    result2 = self.block2(self.block1(x, epoch), epoch)
+                    x = self.join(result1, result2, path_num) #join에서 선택한 path만 활성화
+                return x
 
 
 class FractalNet(nn.Module):

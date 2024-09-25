@@ -35,7 +35,6 @@ elif args.model[:8] == "densenet":
 elif args.model[:10] == "fractalnet":
     net = fractalnet.FractalNet(64, 5, 4)
 
-print(net)
 net.to('cuda')
 
 #Load Data
@@ -74,7 +73,10 @@ for epoch in range(epochs):
         #no_grad를 사용하면, gradient 계산 기능을 끄고(requires_grad=False) 메모리 소비를 줄인다. inference 할 때 유용하다
         for data in testLoader:
             images, labels = data[0].to('cuda'), data[1].to('cuda')
-            outputs = net(images)
+            if args.model[:10] == "fractalnet":
+                outputs = net(images, epoch)
+            else:
+                outputs = net(images)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
@@ -91,7 +93,10 @@ total = 0
 with torch.no_grad():
     for data in testLoader:
         images, labels = data[0].to('cuda'), data[1].to('cuda')
-        outputs = net(images)
+        if args.model[:10] == "fractalnet":
+            outputs = net(images, epoch)
+        else:
+            outputs = net(images)
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
@@ -107,7 +112,10 @@ writer.close()
 with torch.no_grad():
     for data in testLoader:
         images, labels = data[0].to('cuda'), data[1].to('cuda')
-        outputs = net(images)
+        if args.model[:10] == "fractalnet":
+            outputs = net(images, epoch)
+        else:
+            outputs = net(images)
         _, predictions = torch.max(outputs, 1)
         for label, prediction in zip(labels, predictions):
             if label == prediction:
