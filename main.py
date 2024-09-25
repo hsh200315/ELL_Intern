@@ -57,7 +57,10 @@ for epoch in range(epochs):
 
         optimizer.zero_grad()
 
-        outputs = net(inputs)
+        if args.model[:10] == "fractalnet":
+            outputs = net(inputs, epoch)
+        else:
+            outputs = net(inputs)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()

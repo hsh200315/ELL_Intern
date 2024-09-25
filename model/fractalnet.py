@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import utils
+import random
 
 class ConvLayer(nn.Module):
     def __init__(self, input_channel, output_channel):
@@ -22,9 +22,11 @@ class JoinLayer(nn.Module):
         return (input1+input2)/2
 
 class FractalBlock(nn.Module):
-    def __init__(self, input_channel, output_channel, depth):
+    def __init__(self, input_channel, output_channel, depth, local_prob, global_prob):
         super(FractalBlock, self).__init__()
         self.depth = depth
+        self.local_prob = local_prob
+        self.global_prob = global_prob
         if depth == 1:
             self.block = ConvLayer(input_channel, output_channel)
         else:
@@ -33,13 +35,24 @@ class FractalBlock(nn.Module):
             self.block2 = FractalBlock(output_channel, output_channel, depth-1)
             self.join = JoinLayer()
             
-    def forward(self, x):
-        if self.depth == 1:
-            x = self.block(x)
-        else:
-            result1 = self.short_path(x)
-            result2 = self.block2(self.block1(x))
-            x = self.join(result1, result2)
+    def forward(self, x, epoch):
+        if epoch%2 == 0: #local drop
+            if self.depth == 1:
+                x = self.block(x)
+            else:
+                if random.random() >= self.local_prob:
+                    result1 = self.short_path(x)
+                    if random.random() >= self.local_prob:
+                        result2 = self.block2(self.block1(x))
+                        x = self.join(result1, result2)
+                    else:
+                        x = result1
+                else:
+                    x = self.block2(self.block1(x))
+                    
+        else: #global drop
+            x = x
+            
         return x
 
 
@@ -55,9 +68,9 @@ class FractalNet(nn.Module):
         self.maxpool = nn.MaxPool2d((2,2))
         self.fc = nn.Linear(start_channel*pow(2,B-1), 10)
 
-    def forward(self, x):      
+    def forward(self, x, epoch):      
         for i in range(self.B):
-            x = self.maxpool(self.blocks[i](x))
+            x = self.maxpool(self.blocks[i](x, epoch))
         
         x = torch.flatten(x, 1)
         x = self.fc(x)
