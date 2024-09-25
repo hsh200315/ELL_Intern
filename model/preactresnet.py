@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 class PreActBasicBlock(nn.Module):
     def __init__(self, input_channel, output_channel, downsampling=False):
@@ -83,13 +82,14 @@ class PreActResNet(nn.Module):
             self.bn = nn.BatchNorm2d(start_channel*32)
             self.fc1 = nn.Linear(start_channel*32, 10)
         self.avg_pool = nn.AdaptiveAvgPool2d((1,1))
+        self.relu = nn.ReLU(inplace=True)
 
     def forward(self, x):
         for i in range(5):
             for layer in self.conv[i]:
                 x = layer(x)
         
-        x = F.relu(self.bn(x))
+        x = self.relu(self.bn(x))
         x = self.avg_pool(x)
         x = torch.flatten(x, 1)
         x = self.fc1(x)
