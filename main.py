@@ -50,16 +50,15 @@ scheduler = lr_scheduler.MultiStepLR(optimizer, milestones, gamma=0.1)
 writer = SummaryWriter(PATH_FOR_LOG)
 
 for epoch in range(epochs):
+    net.train()
     running_loss = 0.0
+    if args.model[:10] == "fractalnet":
+        net.set_epoch(epoch)
     for i, data in enumerate(trainLoader, 0):
         inputs, labels = data[0].to('cuda'), data[1].to('cuda')
 
         optimizer.zero_grad()
-
-        if args.model[:10] == "fractalnet":
-            outputs = net(inputs, epoch)
-        else:
-            outputs = net(inputs)
+        outputs = net(inputs)
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
@@ -68,15 +67,14 @@ for epoch in range(epochs):
     scheduler.step()
     correct = 0
     total = 0
+    
+    net.eval()
     with torch.no_grad(): 
         #torch는 autograd기능을 제공하고, default로 x.requires_grad=True/x의 기울기를 담은 tensor를 갖고 있는다
         #no_grad를 사용하면, gradient 계산 기능을 끄고(requires_grad=False) 메모리 소비를 줄인다. inference 할 때 유용하다
         for data in testLoader:
             images, labels = data[0].to('cuda'), data[1].to('cuda')
-            if args.model[:10] == "fractalnet":
-                outputs = net(images, epoch)
-            else:
-                outputs = net(images)
+            outputs = net(images)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
@@ -90,13 +88,11 @@ torch.save(net.state_dict(), PATH)
 
 correct = 0
 total = 0
+net.eval()
 with torch.no_grad():
     for data in testLoader:
         images, labels = data[0].to('cuda'), data[1].to('cuda')
-        if args.model[:10] == "fractalnet":
-            outputs = net(images, epoch)
-        else:
-            outputs = net(images)
+        outputs = net(images)
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
@@ -112,10 +108,7 @@ writer.close()
 with torch.no_grad():
     for data in testLoader:
         images, labels = data[0].to('cuda'), data[1].to('cuda')
-        if args.model[:10] == "fractalnet":
-            outputs = net(images, epoch)
-        else:
-            outputs = net(images)
+        outputs = net(images)
         _, predictions = torch.max(outputs, 1)
         for label, prediction in zip(labels, predictions):
             if label == prediction:

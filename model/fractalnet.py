@@ -3,6 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import random
 
+torch.manual_seed(42)
+random.seed(42)
+
 class ConvLayer(nn.Module):
     def __init__(self, input_channel, output_channel, drop_out_prob):
         super(ConvLayer, self).__init__()
@@ -19,19 +22,25 @@ class JoinLayer(nn.Module):
     def __init__(self, depth):
         super(JoinLayer, self).__init__()
         self.depth = depth
+        self.input1 = None; self.input2 = None; self.path_num = None
         
-    def forward(self, input1, input2, path_num):
+    def set_variables(self, input1, input2):
+        self.input1 = input1
+        self.input2 = input2
+        
+    def forward(self, path_num):
         #input1 = short path, input2 long path
-        if path_num == 0:
-            return (input1+input2)/2
+        if self.path_num == 0:
+            return (self.input1+self.input2)/2
         elif path_num == self.depth:
-            return input1
+            return self.input1
         elif path_num < self.depth:
-            return input2
+            return self.input2
 
 class FractalBlock(nn.Module):
     def __init__(self, input_channel, output_channel, depth, local_prob, drop_out_prob):
         super(FractalBlock, self).__init__()
+        self.epoch = 0
         self.depth = depth
         self.local_prob = local_prob
         if depth == 1:
@@ -41,27 +50,38 @@ class FractalBlock(nn.Module):
             self.block1 = FractalBlock(input_channel, output_channel, depth-1, local_prob, drop_out_prob)
             self.block2 = FractalBlock(output_channel, output_channel, depth-1, local_prob, drop_out_prob)
             self.join = JoinLayer(depth)
-            
-    def forward(self, x, epoch):
+    
+    def set_epoch(self, epoch):
+        self.epoch = epoch
+        if self.depth > 1:
+            self.block1.set_epoch(epoch)
+            self.block2.set_epoch(epoch)
+        
+    def forward(self, x):
         if not self.training:
-            result1 = self.short_path(x)
-            result2 = self.block2(self.block1(x, epoch), epoch)
-            x = self.join(result1, result2, 0)
+            if self.depth == 1:
+                x = self.block(x)
+            else:
+                result1 = self.short_path(x)
+                result2 = self.block2(self.block1(x))
+                self.join.set_variables(result1, result2)
+                x = self.join(0)
             return x
         else:
-            if epoch%2 == 0: #local drop
+            if self.epoch%2 == 0: #local drop
                 if self.depth == 1:
                     x = self.block(x)
                 else:
                     if random.random() >= self.local_prob:
                         result1 = self.short_path(x)
                         if random.random() >= self.local_prob:
-                            result2 = self.block2(self.block1(x, epoch), epoch)
-                            x = self.join(result1, result2, 0)
+                            result2 = self.block2(self.block1(x))
+                            self.join.set_variables(result1, result2)
+                            x = self.join(0)
                         else:
                             x = result1
                     else:
-                        x = self.block2(self.block1(x, epoch), epoch)
+                        x = self.block2(self.block1(x))
                 return x
             else: #global drop
                 if self.depth == 1:
@@ -69,14 +89,16 @@ class FractalBlock(nn.Module):
                 else:
                     path_num = random.randint(1, self.depth) #path 1개 선택
                     result1 = self.short_path(x)
-                    result2 = self.block2(self.block1(x, epoch), epoch)
-                    x = self.join(result1, result2, path_num) #join에서 선택한 path만 활성화
+                    result2 = self.block2(self.block1(x))
+                    self.join.set_variables(result1, result2)
+                    x = self.join(path_num) #join에서 선택한 path만 활성화
                 return x
 
 
 class FractalNet(nn.Module):
     def __init__(self, start_channel, B, C):
         super(FractalNet, self).__init__()
+        self.epoch = 0
         self.B = B
         self.blocks = nn.ModuleList()
         self.blocks.append(FractalBlock(3, start_channel, C, 0.5, 0))
@@ -86,9 +108,13 @@ class FractalNet(nn.Module):
         self.maxpool = nn.MaxPool2d((2,2))
         self.fc = nn.Linear(start_channel*pow(2,B-1), 10)
 
-    def forward(self, x, epoch):      
+    def set_epoch(self, epoch):
+        self.epoch = epoch
+
+    def forward(self, x):      
         for i in range(self.B):
-            x = self.maxpool(self.blocks[i](x, epoch))
+            self.blocks[i].set_epoch(self.epoch)
+            x = self.maxpool(self.blocks[i](x))
         
         x = torch.flatten(x, 1)
         x = self.fc(x)
