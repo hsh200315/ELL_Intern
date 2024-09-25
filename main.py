@@ -32,9 +32,10 @@ elif args.model[:12] == "preactresnet":
 elif args.model[:8] == "densenet":
     layer_num = args.layer; growth_rate = args.growth_rate; theta = args.theta
     net = densenet.DenseNet(64, layer_num, growth_rate, theta)
-elif args.model == "fractalnet":
-    net = fractalnet.FractalNet(4)
+elif args.model[:10] == "fractalnet":
+    net = fractalnet.FractalNet(64, 5, 4)
 
+print(net)
 net.to('cuda')
 
 #Load Data

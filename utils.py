@@ -15,10 +15,3 @@ def add_args():
     parser.add_argument("-t", "--theta", dest="theta", action="store") #densenet
 
     return parser.parse_args()
-
-def is_true():
-    p = 0.5
-    if p >= random.random():
-        return True
-    else:
-        return False

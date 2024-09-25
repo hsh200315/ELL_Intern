@@ -3,60 +3,62 @@ import torch.nn as nn
 import torch.nn.functional as F
 import utils
 
-class FractalBasicBlock(nn.Module):
+class ConvLayer(nn.Module):
     def __init__(self, input_channel, output_channel):
-        super(FractalBasicBlock, self).__init__()
+        super(ConvLayer, self).__init__()
         self.conv = nn.Conv2d(input_channel, output_channel, kernel_size=3, padding=1, stride=1)
         self.bn = nn.BatchNorm2d(output_channel)
-
-    def forward(self, x):
-        x = self.conv(x)
-        x = self.bn(x)
-        x = F.relu(x)
+        self.relu = nn.ReLU(inplace=True)
         
+    def forward(self, x):
+        x = self.relu(self.bn(self.conv(x)))
         return x
+
+class JoinLayer(nn.Module):
+    def __init__(self):
+        super(JoinLayer, self).__init__()
+    
+    def forward(self, input1, input2):
+        return (input1+input2)/2
 
 class FractalBlock(nn.Module):
     def __init__(self, input_channel, output_channel, depth):
         super(FractalBlock, self).__init__()
+        self.depth = depth
         if depth == 1:
-            self.block = FractalBasicBlock(input_channel, output_channel)
+            self.block = ConvLayer(input_channel, output_channel)
         else:
-            self.fractal1 = FractalBlock(input_channel, output_channel, depth-1)
-            self.fractal2 = FractalBlock(output_channel, output_channel, depth-1)
-            self.avgpool = nn.AdaptiveAvgPool2d((1,1))
-
-    def forward(self, x):
-        if utils.is_true():
-            result1 = self.fractal1(x)
-        else:
-            result1 = 0
-        
-        if result1 == 0:
-            result2 = self.fractal2(self.fractal1(x))
-        elif utils.is_true():
-            result2 = self.fractal2(self.fractal1(x))
-        else:
-            result2 = 0
+            self.short_path = ConvLayer(input_channel, output_channel)
+            self.block1 = FractalBlock(input_channel, output_channel, depth-1)
+            self.block2 = FractalBlock(output_channel, output_channel, depth-1)
+            self.join = JoinLayer()
             
-        return self.avgpool(result1 + result2)  #Local drop-path 구현
+    def forward(self, x):
+        if self.depth == 1:
+            x = self.block(x)
+        else:
+            result1 = self.short_path(x)
+            result2 = self.block2(self.block1(x))
+            x = self.join(result1, result2)
+        return x
+
 
 class FractalNet(nn.Module):
-    def __init__(self, C):
+    def __init__(self, start_channel, B, C):
         super(FractalNet, self).__init__()
-        self.block1 = FractalBlock(3, 64, C)
-        self.block2 = FractalBlock(64, 128, C)
-        self.block3 = FractalBlock(128, 256, C)
-        self.block4 = FractalBlock(256, 512, C)
-        self.block5 = FractalBlock(512, 512, C)
+        self.B = B
+        self.blocks = nn.ModuleList()
+        self.blocks.append(FractalBlock(3, start_channel, C))
+        for i in range(B-1):
+            self.blocks.append(FractalBlock(start_channel*pow(2,i), start_channel*pow(2,i+1), C))
         
         self.maxpool = nn.MaxPool2d((2,2))
+        self.fc = nn.Linear(start_channel*pow(2,B-1), 10)
 
-    def forward(self, x):        
-        x = self.maxpool(self.block1(x))
-        x = self.maxpool(self.block2(x))
-        x = self.maxpool(self.block3(x))
-        x = self.maxpool(self.block4(x))
-        x = self.maxpool(self.block5(x))
+    def forward(self, x):      
+        for i in range(self.B):
+            x = self.maxpool(self.blocks[i](x))
         
+        x = torch.flatten(x, 1)
+        x = self.fc(x)
         return x
