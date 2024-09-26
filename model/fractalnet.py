@@ -101,9 +101,9 @@ class FractalNet(nn.Module):
         self.epoch = 0
         self.B = B
         self.blocks = nn.ModuleList()
-        self.blocks.append(FractalBlock(3, start_channel, C, 0.5, 0))
+        self.blocks.append(FractalBlock(3, start_channel, C, 0.15, 0))
         for i in range(B-1):
-            self.blocks.append(FractalBlock(start_channel*pow(2,i), start_channel*pow(2,i+1), C, 0.5, 0.1*(i+1)))
+            self.blocks.append(FractalBlock(start_channel*pow(2,i), start_channel*pow(2,i+1), C, 0.15, 0.1*(i+1)))
         
         self.maxpool = nn.MaxPool2d((2,2))
         self.fc = nn.Linear(start_channel*pow(2,B-1), 10)
