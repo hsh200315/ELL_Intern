@@ -33,7 +33,7 @@ elif args.model[:8] == "densenet":
     layer_num = args.layer; growth_rate = args.growth_rate; theta = args.theta
     net = densenet.DenseNet(64, layer_num, growth_rate, theta)
 elif args.model[:10] == "fractalnet":
-    net = fractalnet.FractalNet(64, 5, 4)
+    net = fractalnet.FractalNet(64, 512, 5, 4)
 
 net.to('cuda')
 
@@ -49,14 +49,16 @@ scheduler = lr_scheduler.MultiStepLR(optimizer, milestones, gamma=0.1)
 
 writer = SummaryWriter(PATH_FOR_LOG)
 
+is_global = True
 for epoch in range(epochs):
     net.train()
     running_loss = 0.0
-    if args.model[:10] == "fractalnet":
-        net.set_epoch(epoch)
     for i, data in enumerate(trainLoader, 0):
         inputs, labels = data[0].to('cuda'), data[1].to('cuda')
 
+        # if args.model[:10] == "fractalnet":
+        #     is_global = not is_global
+        #     net.set_is_global(is_global)
         optimizer.zero_grad()
         outputs = net(inputs)
         loss = criterion(outputs, labels)
