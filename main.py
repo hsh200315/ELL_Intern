@@ -56,9 +56,9 @@ for epoch in range(epochs):
     for i, data in enumerate(trainLoader, 0):
         inputs, labels = data[0].to('cuda'), data[1].to('cuda')
 
-        # if args.model[:10] == "fractalnet":
-        #     is_global = not is_global
-        #     net.set_is_global(is_global)
+        if args.model[:10] == "fractalnet":
+            is_global = not is_global
+            net.set_is_global(is_global)
         optimizer.zero_grad()
         outputs = net(inputs)
         loss = criterion(outputs, labels)
