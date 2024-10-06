@@ -43,7 +43,7 @@ trainLoader = torch.utils.data.DataLoader(train_data, batch_size=batch_size, shu
 testLoader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuffle=False, num_workers=2)
 
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(net.parameters(), lr=lr, weight_decay=0.00001, momentum=0.9)
+optimizer = optim.SGD(net.parameters(), lr=lr, weight_decay=0.001, momentum=0.9)
 milestones = [int(epochs*0.5), int(epochs*0.75)]
 scheduler = lr_scheduler.MultiStepLR(optimizer, milestones, gamma=0.1)
 
