@@ -6,7 +6,6 @@ import random
 torch.manual_seed(42)
 random.seed(42)
 
-fractal_list = nn.ModuleList()
 num_input_join = 0
 
 class ConvLayer(nn.Module):
@@ -78,10 +77,8 @@ class FractalBlock(nn.Module):
         self.path_num = 0
         if depth == 1:
             self.block = ConvLayer(input_channel, output_channel, drop_out_prob)
-            fractal_list[depth-1].append(self.block)
         else:                
             self.short_path = ConvLayer(input_channel, output_channel, drop_out_prob)
-            fractal_list[depth-1].append(self.short_path)
             self.fractal1 = FractalBlock(input_channel, output_channel, depth-1, lprob, drop_out_prob, True)
             self.fractal2 = FractalBlock(output_channel, output_channel, depth-1, lprob, drop_out_prob, False)
             if use_join:
@@ -117,8 +114,6 @@ class FractalNet(nn.Module):
         self.B = B
         self.C = C
         self.is_global = True
-        for i in range(C):
-            fractal_list.append(nn.ModuleList())
         self.block_list = nn.ModuleList()
         self.block_list.append(FractalBlock(3, start_channel, C, 0.15, 0.0, True))
         for i in range(B-1):
