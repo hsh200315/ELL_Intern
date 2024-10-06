@@ -14,6 +14,8 @@ class ConvLayer(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.dropout = nn.Dropout(p=drop_out_prob)
         
+        nn.init.xavier_uniform_(self.conv.weight)
+        
     def forward(self, x):
         x = self.dropout(self.relu(self.bn(self.conv(x))))
         return x
