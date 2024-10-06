@@ -6,8 +6,6 @@ import random
 torch.manual_seed(42)
 random.seed(42)
 
-num_input_join = 0
-
 class ConvLayer(nn.Module):
     def __init__(self, input_channel, output_channel, drop_out_prob):
         super(ConvLayer, self).__init__()
@@ -17,10 +15,7 @@ class ConvLayer(nn.Module):
         self.dropout = nn.Dropout(p=drop_out_prob)
         
     def forward(self, x):
-        if self.training:
-            x = self.dropout(self.relu(self.bn(self.conv(x))))
-        else:
-            x = self.relu(self.bn(self.conv(x)))
+        x = self.dropout(self.relu(self.bn(self.conv(x))))
         return x
     
 class JoinLayer(nn.Module):
@@ -28,22 +23,16 @@ class JoinLayer(nn.Module):
         super(JoinLayer, self).__init__()
         self.depth = depth
         self.lprob = lprob
-        self.is_global = True
-        self.path_num = 0
         
-    def set_is_global(self, is_global, path_num):
-        self.is_global = is_global
-        self.path_num = path_num
-        
-    def forward(self, *inputs):
+    def forward(self, inputs, is_global, path_num):
         input_list = []
         selected = []
         local_drop = [] 
         if self.training:
-            if self.is_global: #global drop path
-                if self.depth <= self.path_num:
+            if is_global: #global drop path
+                if self.depth <= path_num:
                     selected.append(inputs[0])
-                if self.path_num == 1 or self.depth > self.path_num:
+                if path_num == 1 or self.depth > path_num:
                     selected.append(inputs[1]) #global drop path
             else:
                 for i in range(len(inputs)):#local drop path
@@ -71,36 +60,23 @@ class FractalBlock(nn.Module):
     def __init__(self, input_channel, output_channel, depth, lprob, drop_out_prob, use_join):
         super(FractalBlock, self).__init__()
         self.depth = depth
-        self.path_num = 0
         self.use_join = use_join
-        self.is_global = True
-        self.path_num = 0
-        if depth == 1:
-            self.block = ConvLayer(input_channel, output_channel, drop_out_prob)
-        else:                
-            self.short_path = ConvLayer(input_channel, output_channel, drop_out_prob)
+        self.block = ConvLayer(input_channel, output_channel, drop_out_prob)
+        if depth > 1:                
             self.fractal1 = FractalBlock(input_channel, output_channel, depth-1, lprob, drop_out_prob, True)
             self.fractal2 = FractalBlock(output_channel, output_channel, depth-1, lprob, drop_out_prob, False)
             if use_join:
                 self.join = JoinLayer(depth, lprob)
         
-    def set_is_global(self, is_global, path_num):
-        self.is_global = is_global
-        self.path_num = path_num
-        if self.depth != 1:
-            self.fractal1.set_is_global(is_global, path_num)
-            self.fractal2.set_is_global(is_global, path_num)
-        
-    def forward(self, x):
+    def forward(self, x, is_global, path_num):
         if self.depth == 1:
             return self.block(x)
         else:
-            x1 = self.short_path(x)
-            x2 = self.fractal2(self.fractal1(x))
+            x1 = self.block(x)
+            x2 = self.fractal2(self.fractal1(x, is_global, path_num), is_global, path_num)
             
             if self.use_join:
-                self.join.set_is_global(self.is_global, self.path_num)
-                return self.join(x1, x2)
+                return self.join([x1, x2], is_global, path_num)
             else:
                 input_list = [x1]
                 if x2.dim() != 4:
@@ -113,7 +89,6 @@ class FractalNet(nn.Module):
         super(FractalNet, self).__init__()
         self.B = B
         self.C = C
-        self.is_global = True
         self.block_list = nn.ModuleList()
         self.block_list.append(FractalBlock(3, start_channel, C, 0.15, 0.0, True))
         for i in range(B-1):
@@ -125,13 +100,9 @@ class FractalNet(nn.Module):
         self.maxpool = nn.MaxPool2d((2, 2))
         self.fc = nn.Linear(start_channel*8, 10)
         
-    def set_is_global(self, is_global):
-        self.is_global = is_global
-        
-    def forward(self, x):
+    def forward(self, x, is_global):
         for i in range(self.B):
-            self.block_list[i].set_is_global(self.is_global, random.randint(1, self.C))
-            x = self.block_list[i](x)
+            x = self.block_list[i](x, is_global, random.randint(1, self.C))
             x = self.maxpool(x)
         
         x = x.flatten(1)
