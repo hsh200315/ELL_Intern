@@ -45,8 +45,14 @@ testLoader = torch.utils.data.DataLoader(test_data, batch_size=batch_size, shuff
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=lr, weight_decay=0.001, momentum=0.9)
 milestones = [int(epochs*0.5), int(epochs*0.75)]
+if args.model[:10] == "fractalnet":
+    milestones = []
+    remaining_epoch = epochs
+    while remaining_epoch > 1:
+        remaining_epoch = remaining_epoch // 2
+        milestones.append(epochs-remaining_epoch)
+    
 scheduler = lr_scheduler.MultiStepLR(optimizer, milestones, gamma=0.1)
-
 writer = SummaryWriter(PATH_FOR_LOG)
 
 is_global = True
